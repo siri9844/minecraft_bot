@@ -1277,6 +1277,16 @@ function createBot() {
         );
       }
 
+      // FIX: 1.20.5+ / 1.21+ protocol requires client tick_end packet on physics ticks.
+      // Missing this packet causes immediate server kick: 'multiplayer.disconnect.invalid_player_movement'
+      bot.on("physicsTick", () => {
+        try {
+          if (bot._client && typeof bot._client.write === "function") {
+            bot._client.write("tick_end", {});
+          }
+        } catch (e) {}
+      });
+
       // FIX: use bot.version (auto-detected) instead of config value so minecraft-data always matches
       const mcData = require("minecraft-data")(bot.version);
       const defaultMove = new Movements(bot, mcData);
@@ -1285,7 +1295,12 @@ function createBot() {
       defaultMove.liquidCost = 1000;
       defaultMove.fallDamageCost = 1000;
 
-      initializeModules(bot, mcData, defaultMove);
+      // Allow 3 seconds for chunks, terrain, and physics to stabilize before starting modules
+      setTimeout(() => {
+        if (bot && botState.connected) {
+          initializeModules(bot, mcData, defaultMove);
+        }
+      }, 3000);
 
       // Attempt creative mode (only works if bot has OP and enabled in settings)
       setTimeout(() => {
@@ -1428,13 +1443,15 @@ function initializeModules(bot, mcData, defaultMove) {
     const tryAuth = (type) => {
       if (authHandled || !bot || !botState.connected) return;
       authHandled = true;
-      if (type === "register") {
-        bot.chat(`/register ${password} ${password}`);
-        addLog("[Auth] Detected register prompt - sent /register");
-      } else {
-        bot.chat(`/login ${password}`);
-        addLog("[Auth] Detected login prompt - sent /login");
-      }
+      try {
+        if (type === "register") {
+          bot.chat(`/register ${password} ${password}`);
+          addLog("[Auth] Detected register prompt - sent /register");
+        } else {
+          bot.chat(`/login ${password}`);
+          addLog("[Auth] Detected login prompt - sent /login");
+        }
+      } catch (e) {}
     };
 
     bot.on("messagestr", (message) => {
@@ -1461,7 +1478,7 @@ function initializeModules(bot, mcData, defaultMove) {
         addLog(
           "[Auth] No prompt detected after 10s, sending /login as failsafe",
         );
-        bot.chat(`/login ${password}`);
+        try { bot.chat(`/login ${password}`); } catch (e) {}
         authHandled = true;
       }
     }, 10000);
