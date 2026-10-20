@@ -3,7 +3,7 @@
 const { addLog, getLogs } = require("./logger");
 const mineflayer = require("mineflayer");
 const { Movements, pathfinder, goals } = require("mineflayer-pathfinder");
-const { GoalBlock } = goals;
+const { GoalBlock, GoalNear, GoalXZ } = goals;
 const config = require("./settings.json");
 const express = require("express");
 const http = require("http");
@@ -1085,29 +1085,38 @@ function formatUptime(seconds) {
 
 // ============================================================
 // SELF-PING - Prevent Render from sleeping
-// FIX: only ping if RENDER_EXTERNAL_URL is set (skip useless localhost ping)
 // ============================================================
-const SELF_PING_INTERVAL = 10 * 60 * 1000;
+const SELF_PING_INTERVAL = 3 * 60 * 1000; // Ping every 3 minutes (Render free tier sleeps at 15m)
 
 function startSelfPing() {
-  const renderUrl = process.env.RENDER_EXTERNAL_URL;
-  if (!renderUrl) {
+  const rawUrl = (process.env.RENDER_EXTERNAL_URL || config["render-url"] || "").trim();
+  if (!rawUrl) {
     addLog(
-      "[KeepAlive] No RENDER_EXTERNAL_URL set - self-ping disabled (running locally)",
+      "[KeepAlive] No RENDER_EXTERNAL_URL or settings 'render-url' set - self-ping disabled.",
     );
     return;
   }
-  setInterval(() => {
+  const renderUrl = rawUrl.replace(/\/$/, "");
+  const pingUrl = `${renderUrl}/ping`;
+
+  const pingOnce = () => {
     const protocol = renderUrl.startsWith("https") ? https : http;
     protocol
-      .get(`${renderUrl}/ping`, (res) => {
-        // Silent success
+      .get(pingUrl, (res) => {
+        if (res.statusCode === 200) {
+          addLog("[KeepAlive] Self-ping successful (Render kept awake)");
+        } else {
+          addLog(`[KeepAlive] Self-ping HTTP status: ${res.statusCode}`);
+        }
       })
       .on("error", (err) => {
         addLog(`[KeepAlive] Self-ping failed: ${err.message}`);
       });
-  }, SELF_PING_INTERVAL);
-  addLog("[KeepAlive] Self-ping system started (every 10 min)");
+  };
+
+  setTimeout(pingOnce, 8000); // First ping after 8s
+  setInterval(pingOnce, SELF_PING_INTERVAL);
+  addLog(`[KeepAlive] Self-ping active (every 3 min) -> ${pingUrl}`);
 }
 
 startSelfPing();
@@ -1294,6 +1303,20 @@ function createBot() {
           addLog("[INFO] Bot is now in Creative Mode.");
         }
       });
+    });
+
+    bot.on("death", () => {
+      addLog("[Bot] Died in-game. Respawning in 1 second...");
+      setTimeout(() => {
+        try {
+          if (bot && typeof bot.respawn === "function") {
+            bot.respawn();
+            addLog("[Bot] Respawned successfully.");
+          }
+        } catch (e) {
+          addLog(`[Bot] Respawn error: ${e.message}`);
+        }
+      }, 1000);
     });
 
     // FIX: 'kicked' fires before 'end'. Remove the scheduleReconnect from 'kicked'
@@ -1574,7 +1597,10 @@ function initializeModules(bot, mcData, defaultMove) {
       );
     }
 
-    if (config.utils["anti-afk"].sneak) {
+    if (
+      config.utils["anti-afk"].sneak &&
+      (!config.movement || !config.movement.roaming || !config.movement.roaming.enabled)
+    ) {
       try {
         if (typeof bot.setControlState === "function")
           bot.setControlState("sneak", true);
@@ -1585,18 +1611,19 @@ function initializeModules(bot, mcData, defaultMove) {
   // ---------- MOVEMENT MODULES ----------
   // FIX: check top-level movement.enabled flag
   if (config.movement && config.movement.enabled !== false) {
-    // FIX: circle-walk and random-jump both jump - only run one jumping mechanism
-    // random-jump is skipped if anti-afk jump is handled elsewhere; we only use random-jump here
-    if (
+    if (config.movement.roaming && config.movement.roaming.enabled) {
+      startRoaming(bot, defaultMove);
+    } else if (
       config.movement["circle-walk"] &&
       config.movement["circle-walk"].enabled
     ) {
       startCircleWalk(bot, defaultMove);
     }
-    // FIX: only run random-jump if circle-walk is NOT running (circle-walk also keeps bot moving)
+
     if (
       config.movement["random-jump"] &&
       config.movement["random-jump"].enabled &&
+      !(config.movement.roaming && config.movement.roaming.enabled) &&
       !(
         config.movement["circle-walk"] && config.movement["circle-walk"].enabled
       )
@@ -1632,6 +1659,62 @@ function initializeModules(bot, mcData, defaultMove) {
 // ============================================================
 // MOVEMENT HELPERS
 // ============================================================
+function startRoaming(bot, defaultMove) {
+  const roamRadius = (config.movement.roaming && config.movement.roaming.radius) || 12;
+  const interval = (config.movement.roaming && config.movement.roaming.interval) || 10000;
+  let homePos = null;
+  let isNavigating = false;
+
+  addLog(
+    `[Roaming] Natural roaming enabled within radius ${roamRadius} blocks (every ${Math.round(interval / 1000)}s)`
+  );
+
+  addInterval(() => {
+    if (!bot || !botState.connected || !bot.entity || isNavigating) return;
+
+    if (!homePos) {
+      homePos = bot.entity.position.clone();
+      addLog(
+        `[Roaming] Set center position at X: ${Math.round(homePos.x)}, Y: ${Math.round(homePos.y)}, Z: ${Math.round(homePos.z)}`
+      );
+    }
+
+    try {
+      // Pick random safe coordinates within roamRadius of homePos
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 2 + Math.random() * (roamRadius - 2);
+      const targetX = Math.floor(homePos.x + Math.cos(angle) * distance);
+      const targetZ = Math.floor(homePos.z + Math.sin(angle) * distance);
+
+      // Swing arm and update activity
+      try { bot.swingArm(); } catch (e) {}
+      botState.lastActivity = Date.now();
+
+      isNavigating = true;
+      bot.pathfinder.setMovements(defaultMove);
+      bot.pathfinder.setGoal(new GoalNear(targetX, Math.floor(bot.entity.position.y), targetZ, 1));
+
+      // Reset navigating state after reaching goal or 8s timeout failsafe
+      const navTimeout = setTimeout(() => {
+        isNavigating = false;
+        try { bot.pathfinder.stop(); } catch (e) {}
+      }, 8000);
+
+      bot.once("goal_reached", () => {
+        clearTimeout(navTimeout);
+        isNavigating = false;
+        try {
+          const yaw = Math.random() * Math.PI * 2 - Math.PI;
+          bot.look(yaw, 0, false);
+          bot.swingArm();
+        } catch (e) {}
+      });
+    } catch (e) {
+      isNavigating = false;
+      addLog(`[Roaming] Error: ${e.message}`);
+    }
+  }, interval);
+}
 function startCircleWalk(bot, defaultMove) {
   const radius = config.movement["circle-walk"].radius;
   let angle = 0;

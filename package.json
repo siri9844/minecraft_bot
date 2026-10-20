@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "keepalive": "node keepalive.js",
     "test": "node --check index.js"
   },
   "author": "Lamgerr",

@@ -1,0 +1,23 @@
+name: Render 24/7 Keep-Alive
+
+on:
+  schedule:
+    # Runs every 10 minutes (Render sleeps after 15m)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Service
+        run: |
+          RENDER_URL="${{ secrets.RENDER_URL }}"
+          if [ -z "$RENDER_URL" ]; then
+            # Fallback if secret is not set, tries to read from repo or exit gracefully
+            echo "RENDER_URL secret is not set yet. Please add your Render URL in GitHub Repo Secrets (Settings -> Secrets -> Actions -> New secret: RENDER_URL)."
+            exit 0
+          fi
+          echo "Pinging $RENDER_URL..."
+          curl -s -f -m 20 "$RENDER_URL/ping" || curl -s -f -m 20 "$RENDER_URL/" || true
+          echo "Keep-alive ping sent successfully!"
