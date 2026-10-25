@@ -41,7 +41,7 @@ app.get('/', (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>\${config.name} — Enterprise Command Center</title>
+  <title>${config.name} — Enterprise Command Center</title>
   <meta name="description" content="Enterprise-grade live telemetry and command dashboard for Minecraft AFK Sentinel">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1146,8 +1146,8 @@ app.get('/', (req, res) => {
         <i class="fa-solid fa-cube"></i>
       </div>
       <div class="brand-meta">
-        <span class="brand-title">\${config.name}</span>
-        <span class="brand-subtitle">SENTINEL OPS</span>
+        <span class="brand-title">${config.name}</span>
+        <span class="brand-subtitle">AEGIS OPS</span>
       </div>
     </div>
 
@@ -1176,11 +1176,11 @@ app.get('/', (req, res) => {
       </div>
       <div class="server-ip-val">
         <i class="fa-solid fa-server" style="color: var(--primary-light);"></i>
-        <span>\${config.server.ip}:\${config.server.port}</span>
+        <span>${config.server.ip}:${config.server.port}</span>
       </div>
       <div class="server-label-row" style="margin-top: 4px;">
         <span>Bot Identity</span>
-        <span style="color: var(--text-muted);">\${config["bot-account"].username}</span>
+        <span style="color: var(--text-muted);">${config["bot-account"].username}</span>
       </div>
     </div>
   </aside>
@@ -1193,7 +1193,7 @@ app.get('/', (req, res) => {
       <div class="breadcrumb-trail">
         <span><i class="fa-solid fa-network-wired"></i> Infrastructure</span>
         <span>/</span>
-        <span class="crumb-active">\${config["bot-account"].username}</span>
+        <span class="crumb-active">${config["bot-account"].username}</span>
         <span class="status-pill online" id="top-pill"><span class="pulse-dot"></span> LIVE</span>
       </div>
 
@@ -1229,7 +1229,7 @@ app.get('/', (req, res) => {
               <span class="status-pill online" id="hero-badge"><span class="pulse-dot"></span> CONNECTED</span>
             </div>
             <div class="hero-subtext">
-              <span id="hero-subtitle">Connected to \${config.server.ip}:\${config.server.port}</span>
+              <span id="hero-subtitle">Connected to ${config.server.ip}:${config.server.port}</span>
             </div>
             <div class="hero-tags" id="hero-tags" style="margin-top: 10px;">
               <span class="chip-tag ghost"><i class="fa-solid fa-ghost"></i> Ghost Mode Active</span>
@@ -1242,7 +1242,7 @@ app.get('/', (req, res) => {
         <div class="hero-right">
           <div class="server-target-pill" onclick="copyIp()" title="Click to copy IP">
             <i class="fa-solid fa-terminal"></i>
-            <span id="server-address-display">\${config.server.ip}:\${config.server.port}</span>
+            <span id="server-address-display">${config.server.ip}:${config.server.port}</span>
             <i class="fa-regular fa-copy" id="copy-icon"></i>
           </div>
           <div class="hero-synced">
@@ -1367,8 +1367,8 @@ app.get('/', (req, res) => {
             <div class="terminal-container">
               <div class="terminal-screen" id="term-screen">
                 <div class="term-line">
-                  <span class="term-prompt">sentinel@system:~$</span>
-                  <span class="term-resp">Sentinel Bot Command Interface online. Ready for in-game execution.</span>
+                  <span class="term-prompt">aegis-ghost@system:~$</span>
+                  <span class="term-resp">Aegis Ghost Command Interface online. Ready for in-game execution.</span>
                 </div>
               </div>
               <form class="terminal-input-bar" id="term-form" onsubmit="handleCommandSubmit(event)">
@@ -1494,7 +1494,7 @@ app.get('/', (req, res) => {
             <div class="stream-feed" id="stream-feed">
               <div class="stream-item sys">
                 <span class="stream-time">INIT</span>
-                <span class="stream-msg">Sentinel Telemetry Engine initialized. Stream synchronized.</span>
+                <span class="stream-msg">Aegis Ghost Telemetry Engine initialized. Stream synchronized.</span>
               </div>
             </div>
           </div>
@@ -1622,7 +1622,7 @@ app.get('/', (req, res) => {
     }
 
     async function executeCommand(cmd) {
-      addTerminalLine('sentinel@cmd:~$ ' + cmd, 'Executing in-game...');
+      addTerminalLine('aegis-ghost@cmd:~$ ' + cmd, 'Executing in-game...');
       try {
         const r = await fetch('/command', {
           method: 'POST',
@@ -1704,7 +1704,7 @@ app.get('/', (req, res) => {
           heroIcon.className = 'fa-solid fa-shield-halved';
           heroBadge.className = 'status-pill online';
           heroBadge.innerHTML = '<span class="pulse-dot"></span> OPERATIONAL';
-          heroTitle.textContent = 'Sentinel Bot Active';
+          heroTitle.textContent = (d.username || 'GhostAegis') + ' Operational';
           heroSub.textContent = 'Connected to ' + d.serverIp + (d.version ? ' (' + d.version + ')' : '');
           topPill.className = 'status-pill online';
           topPill.innerHTML = '<span class="pulse-dot"></span> ONLINE';
