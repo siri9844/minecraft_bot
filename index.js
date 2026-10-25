@@ -34,245 +34,625 @@ function isSleepingOrGoingToBed(botInstance) {
   );
 }
 
-// Health check endpoint for monitoring
+// Advanced Bot Tracking Dashboard
 app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <title>${config.name} Dashboard</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" media="print" onload="this.media='all'"
-              href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-        <style>
-          *, *::before, *::after { box-sizing: border-box; }
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${config.name} — Bot Tracker</title>
+  <meta name="description" content="Live Minecraft AFK bot tracking dashboard">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:        #080c12;
+      --surface:   #0e1520;
+      --surface2:  #151d2e;
+      --border:    #1e2d45;
+      --border2:   #243250;
+      --text:      #e2eaf7;
+      --muted:     #5a7090;
+      --green:     #22c55e;
+      --green-dim: #14532d;
+      --red:       #ef4444;
+      --red-dim:   #450a0a;
+      --yellow:    #eab308;
+      --blue:      #3b82f6;
+      --purple:    #a855f7;
+      --cyan:      #06b6d4;
+      --orange:    #f97316;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-          body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: #0d1117;
-            color: #e6edf3;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 24px;
-          }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0;
+    }
 
-          main { width: 100%; max-width: 400px; }
+    /* TOP NAV */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 17px;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+    .nav-brand .cube {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600;
+      color: var(--green);
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 20px;
+      padding: 4px 10px;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
 
-          header { margin-bottom: 28px; }
-          header h1 {
-            font-size: 26px;
-            font-weight: 700;
-            color: #f0f6fc;
-            margin: 0;
-            line-height: 1.2;
-          }
-          header p {
-            font-size: 14px;
-            color: #8b949e;
-            margin: 6px 0 0;
-            line-height: 1.5;
-          }
+    .nav-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: background .15s, color .15s;
+    }
+    .nav-link:hover { background: var(--surface2); color: var(--text); }
 
-          .status-section {
-            border-radius: 12px;
-            padding: 20px 24px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            transition: background 0.3s, border-color 0.3s;
-          }
-          .status-section.online  { background: #0d2218; border: 2px solid #238636; }
-          .status-section.offline { background: #200d0d; border: 2px solid #da3633; }
+    /* LAYOUT */
+    .page { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
 
-          .status-icon {
-            width: 44px; height: 44px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 20px; flex-shrink: 0;
-            transition: background 0.3s;
-          }
-          .status-icon.online  { background: #238636; }
-          .status-icon.offline { background: #da3633; }
+    /* STATUS HERO */
+    .status-hero {
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      transition: background .4s, border-color .4s;
+      border: 2px solid var(--border);
+      background: var(--surface);
+    }
+    .status-hero.online  { background: linear-gradient(135deg, #0a1f12 0%, var(--surface) 60%); border-color: #166534; }
+    .status-hero.offline { background: linear-gradient(135deg, #1c0a0a 0%, var(--surface) 60%); border-color: #7f1d1d; }
+    .status-hero.sleeping { background: linear-gradient(135deg, #0f1340 0%, var(--surface) 60%); border-color: #3730a3; }
 
-          .status-label { font-size: 18px; font-weight: 700; line-height: 1.2; transition: color 0.3s; }
-          .status-label.online  { color: #3fb950; }
-          .status-label.offline { color: #f85149; }
-          .status-detail { font-size: 13px; color: #8b949e; margin-top: 3px; }
+    .status-avatar {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+      transition: background .4s;
+    }
+    .status-avatar.online   { background: rgba(34,197,94,0.15); }
+    .status-avatar.offline  { background: rgba(239,68,68,0.15); }
+    .status-avatar.sleeping { background: rgba(99,102,241,0.18); }
 
-          dl { margin: 0; }
-          .stat-card {
-            background: #161b22;
-            border: 1px solid #21262d;
-            border-radius: 10px;
-            padding: 16px 20px;
-            margin-bottom: 10px;
-          }
-          dt { font-size: 12px; color: #8b949e; font-weight: 600; margin-bottom: 4px; }
-          dd { margin: 0; font-size: 17px; font-weight: 600; color: #e6edf3; line-height: 1.3; }
-          .stat-detail { margin: 4px 0 0; font-size: 11px; color: #6e7681; }
+    .status-info { flex: 1; min-width: 0; }
+    .status-title {
+      font-size: 20px; font-weight: 800;
+      letter-spacing: -0.4px;
+      transition: color .4s;
+    }
+    .status-title.online   { color: var(--green); }
+    .status-title.offline  { color: var(--red); }
+    .status-title.sleeping { color: #818cf8; }
+    .status-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-          .controls { margin-top: 8px; }
-          .btn-grid { display: grid; gap: 10px; margin-bottom: 10px; }
-          .btn-grid-2 { grid-template-columns: 1fr 1fr; }
+    .status-meta {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .tag {
+      font-size: 11px; font-weight: 600;
+      border-radius: 6px;
+      padding: 3px 9px;
+    }
+    .tag-green  { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+    .tag-purple { background: rgba(168,85,247,0.12); color: var(--purple); border: 1px solid rgba(168,85,247,0.2); }
+    .tag-blue   { background: rgba(59,130,246,0.12); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
+    .tag-orange { background: rgba(249,115,22,0.12); color: var(--orange); border: 1px solid rgba(249,115,22,0.2); }
+    .tag-red    { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+    .tag-muted  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
 
-          .btn-primary {
-            min-height: 52px; border-radius: 10px;
-            font-size: 15px; font-weight: 700;
-            cursor: pointer; letter-spacing: 0.3px;
-            transition: opacity 0.2s, filter 0.2s;
-            font-family: inherit;
-          }
-          .btn-primary:hover  { filter: brightness(1.1); }
-          .btn-primary:active { opacity: 0.85; }
-          .btn-start { border: 2px solid #238636; background: #0d2218; color: #3fb950; }
-          .btn-stop  { border: 2px solid #da3633; background: #200d0d; color: #f85149; }
+    /* GRID */
+    .grid { display: grid; gap: 14px; margin-bottom: 14px; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 800px) { .grid-3,.grid-4 { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 500px) { .grid-3,.grid-2,.grid-4 { grid-template-columns: 1fr; } }
 
-          .btn-secondary {
-            min-height: 44px; border-radius: 10px;
-            border: 1px solid #21262d; background: #161b22; color: #8b949e;
-            font-size: 13px; font-weight: 500;
-            text-decoration: none;
-            display: flex; align-items: center; justify-content: center;
-            font-family: inherit; cursor: pointer;
-            transition: background 0.2s, color 0.2s;
-          }
-          .btn-secondary:hover { background: #21262d; color: #c9d1d9; }
+    /* CARDS */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: var(--border2); }
+    .card-label {
+      font-size: 11px; font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .card-label-icon { font-size: 13px; }
+    .card-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px; font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+    .card-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-          footer { margin-top: 20px; text-align: center; }
-          footer p { font-size: 12px; color: #484f58; margin: 0; }
-        </style>
-      </head>
-      <body>
-        <main role="main" aria-label="AFK Bot Dashboard">
+    /* BAR GAUGES */
+    .gauge-bar {
+      height: 8px;
+      background: var(--surface2);
+      border-radius: 100px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    .gauge-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width .6s ease;
+    }
+    .gauge-fill.health { background: linear-gradient(90deg, #ef4444, #22c55e); }
+    .gauge-fill.food   { background: linear-gradient(90deg, #f97316, #eab308); }
+    .gauge-fill.memory { background: linear-gradient(90deg, #3b82f6, #a855f7); }
 
-          <header>
-            <h1>AFK Bot Dashboard</h1>
-            <p>Minecraft server bot &middot; Live status</p>
-          </header>
+    /* COORDS */
+    .coord-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 8px; }
+    .coord-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+    .coord-axis { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
+    .coord-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 17px; font-weight: 600;
+      color: var(--text);
+      margin-top: 4px;
+    }
+    .coord-val.x { color: #f87171; }
+    .coord-val.y { color: #4ade80; }
+    .coord-val.z { color: #60a5fa; }
 
-          <section
-            id="status-section"
-            role="status"
-            aria-live="polite"
-            aria-label="Bot connection status"
-            class="status-section offline"
-          >
-            <div id="status-icon" aria-hidden="true" class="status-icon offline">&#x2717;</div>
-            <div>
-              <div id="status-label" class="status-label offline">Connecting…</div>
-              <div id="status-detail" class="status-detail">Establishing connection</div>
-            </div>
-          </section>
+    /* TIME OF DAY */
+    .time-bar-wrap { margin-top: 14px; }
+    .time-bar-track {
+      height: 10px;
+      border-radius: 100px;
+      position: relative;
+      overflow: hidden;
+    }
+    .time-gradient {
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg,
+        #1a1a3e 0%,       /* midnight */
+        #2d3a7c 12.5%,    /* dawn */
+        #f97316 20%,      /* sunrise */
+        #fbbf24 25%,      /* morning */
+        #7dd3fc 35%,      /* day */
+        #60a5fa 50%,      /* noon */
+        #7dd3fc 65%,      /* afternoon */
+        #fb923c 75%,      /* sunset */
+        #7c3aed 80%,      /* dusk */
+        #1a1a3e 100%      /* night */
+      );
+    }
+    .time-cursor {
+      position: absolute;
+      top: -3px; bottom: -3px;
+      width: 4px;
+      background: white;
+      border-radius: 2px;
+      box-shadow: 0 0 6px rgba(255,255,255,0.8);
+      transition: left .5s ease;
+    }
+    .time-labels {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--muted);
+      margin-top: 5px;
+    }
 
-          <section aria-label="Bot statistics">
-            <dl>
-              <div class="stat-card">
-                <dt>Uptime</dt>
-                <dd id="uptime-text">—</dd>
-                <p class="stat-detail">Time since last connection</p>
-              </div>
-              <div class="stat-card">
-                <dt>Coordinates</dt>
-                <dd id="coords-text">Searching…</dd>
-                <p class="stat-detail">Bot's current in-game position</p>
-              </div>
-              <div class="stat-card">
-                <dt>Server address</dt>
-                <dd>${config.server.ip}</dd>
-                <p class="stat-detail">Minecraft server hostname</p>
-              </div>
-            </dl>
-          </section>
+    /* PLAYER LIST */
+    .player-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .player-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .player-dot {
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .player-empty { font-size: 13px; color: var(--muted); margin-top: 8px; text-align: center; padding: 16px; }
 
-          <section class="controls" aria-label="Bot controls">
-            <div class="btn-grid btn-grid-2">
-              <button class="btn-primary btn-start" onclick="startBot()" aria-label="Start bot">Start bot</button>
-              <button class="btn-primary btn-stop" onclick="stopBot()" aria-label="Stop bot">Stop bot</button>
-            </div>
-            <div class="btn-grid btn-grid-2">
-              <a href="/tutorial" class="btn-secondary" aria-label="View setup guide">Setup guide</a>
-              <a href="/logs" class="btn-secondary" aria-label="View bot logs">View logs</a>
-            </div>
-          </section>
+    /* CONTROLS */
+    .controls-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .btn {
+      display: flex; align-items: center; gap: 7px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; border: none;
+      font-family: inherit;
+      transition: filter .15s, opacity .15s;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:active { opacity: .8; }
+    .btn-start  { background: rgba(34,197,94,0.15);  color: var(--green);  border: 1px solid rgba(34,197,94,0.3); }
+    .btn-stop   { background: rgba(239,68,68,0.15);  color: var(--red);    border: 1px solid rgba(239,68,68,0.3); }
+    .btn-sleep  { background: rgba(99,102,241,0.15); color: #818cf8;       border: 1px solid rgba(99,102,241,0.3); }
+    .btn-logs   { background: var(--surface2);       color: var(--muted);  border: 1px solid var(--border); }
 
-          <footer>
-            <p>Status updates every 5 seconds</p>
-          </footer>
+    /* FOOTER */
+    .page-footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 28px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
 
-        </main>
+    /* LAST UPDATE */
+    #last-update { font-size: 11px; color: var(--muted); }
+  </style>
+</head>
+<body>
 
-        <script>
-          function formatUptime(s) {
-            const h = Math.floor(s / 3600);
-            const m = Math.floor((s % 3600) / 60);
-            const sec = s % 60;
-            if (h > 0) return h + 'h ' + m + 'm ' + sec + 's';
-            if (m > 0) return m + 'm ' + sec + 's';
-            return sec + ' seconds';
-          }
+<nav>
+  <div class="nav-brand">
+    <div class="cube">🤖</div>
+    ${config.name}
+  </div>
+  <div class="nav-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <a href="/logs" class="nav-link">📋 Logs</a>
+    <a href="/tutorial" class="nav-link">📖 Guide</a>
+  </div>
+</nav>
 
-          async function update() {
-            try {
-              const r = await fetch('/health');
-              const data = await r.json();
-              const online = data.status === 'connected';
+<div class="page">
 
-              const section = document.getElementById('status-section');
-              const icon    = document.getElementById('status-icon');
-              const label   = document.getElementById('status-label');
-              const detail  = document.getElementById('status-detail');
+  <!-- STATUS HERO -->
+  <div class="status-hero offline" id="hero">
+    <div class="status-avatar offline" id="hero-icon">⚡</div>
+    <div class="status-info">
+      <div class="status-title offline" id="hero-title">Connecting…</div>
+      <div class="status-sub" id="hero-sub">Establishing connection to ${config.server.ip}</div>
+      <div style="margin-top:10px;" class="status-meta" id="hero-tags"></div>
+    </div>
+    <div style="text-align:right;flex-shrink:0;">
+      <div id="last-update">—</div>
+    </div>
+  </div>
 
-              section.className = 'status-section ' + (online ? 'online' : 'offline');
-              icon.className    = 'status-icon '    + (online ? 'online' : 'offline');
-              icon.textContent  = online ? (data.isSleeping ? '🛏️' : '✓') : '✗';
-              label.className   = 'status-label '   + (online ? 'online' : 'offline');
-              label.textContent = online ? (data.isSleeping ? 'Sleeping in bed' : 'Connected') : 'Disconnected';
-              detail.textContent = online ? (data.isSleeping ? 'Passing the night for players' : 'Bot is active on the server') : 'Attempting to reconnect';
+  <!-- TOP CONTROLS -->
+  <div class="controls-row">
+    <button class="btn btn-start" id="btn-start" onclick="doStart()">▶ Start Bot</button>
+    <button class="btn btn-stop" id="btn-stop" onclick="doStop()">⏹ Stop Bot</button>
+    <button class="btn btn-sleep" onclick="doSleep()">🛏 Force Sleep</button>
+    <a href="/logs" class="btn btn-logs">📋 View Logs</a>
+  </div>
 
-              document.getElementById('uptime-text').textContent = formatUptime(data.uptime);
+  <!-- ROW 1: Uptime + Health + Food -->
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">⏱</span>Uptime</div>
+      <div class="card-value" id="c-uptime">—</div>
+      <div class="card-sub" id="c-reconnects">Reconnects: —</div>
+    </div>
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">❤️</span>Health</div>
+      <div class="card-value" id="c-health">—<span style="font-size:14px;color:var(--muted)"> / 20</span></div>
+      <div class="gauge-bar"><div class="gauge-fill health" id="bar-health" style="width:0%"></div></div>
+      <div class="card-sub" id="c-health-sub">Waiting for data…</div>
+    </div>
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">🍗</span>Hunger</div>
+      <div class="card-value" id="c-food">—<span style="font-size:14px;color:var(--muted)"> / 20</span></div>
+      <div class="gauge-bar"><div class="gauge-fill food" id="bar-food" style="width:0%"></div></div>
+      <div class="card-sub" id="c-food-sub">Auto-eat active</div>
+    </div>
+  </div>
 
-              if (data.coords) {
-                const x = Math.floor(data.coords.x);
-                const y = Math.floor(data.coords.y);
-                const z = Math.floor(data.coords.z);
-                document.getElementById('coords-text').textContent = 'X ' + x + ', Y ' + y + ', Z ' + z;
-              } else {
-                document.getElementById('coords-text').textContent = 'Searching…';
-              }
-            } catch (e) {
-              const label = document.getElementById('status-label');
-              label.className = 'status-label offline';
-              label.textContent = 'Unreachable';
-            }
-          }
+  <!-- ROW 2: Coordinates -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-label"><span class="card-label-icon">📍</span>Live Coordinates</div>
+    <div class="coord-grid">
+      <div class="coord-box">
+        <div class="coord-axis">X</div>
+        <div class="coord-val x" id="c-x">—</div>
+      </div>
+      <div class="coord-box">
+        <div class="coord-axis">Y</div>
+        <div class="coord-val y" id="c-y">—</div>
+      </div>
+      <div class="coord-box">
+        <div class="coord-axis">Z</div>
+        <div class="coord-val z" id="c-z">—</div>
+      </div>
+    </div>
+    <div class="card-sub" style="margin-top:10px;" id="c-dim">Dimension: —</div>
+  </div>
 
-          async function startBot() {
-            const r = await fetch('/start', { method: 'POST' });
-            const data = await r.json();
-            alert(data.success ? 'Bot started!' : data.msg);
-            update();
-          }
+  <!-- ROW 3: Time of Day + Players + Memory -->
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">🌐</span>Time of Day</div>
+      <div class="card-value" id="c-time">—</div>
+      <div class="time-bar-wrap">
+        <div class="time-bar-track">
+          <div class="time-gradient"></div>
+          <div class="time-cursor" id="time-cursor" style="left:0%"></div>
+        </div>
+        <div class="time-labels">
+          <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">👥</span>Players Online</div>
+      <div class="card-value" id="c-players">—</div>
+      <div class="player-list" id="player-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">💾</span>Memory Usage</div>
+      <div class="card-value" id="c-mem">— <span style="font-size:14px;color:var(--muted)">MB</span></div>
+      <div class="gauge-bar"><div class="gauge-fill memory" id="bar-mem" style="width:0%"></div></div>
+      <div class="card-sub">Server: ${config.server.ip}</div>
+    </div>
+  </div>
 
-          async function stopBot() {
-            const r = await fetch('/stop', { method: 'POST' });
-            const data = await r.json();
-            alert(data.success ? 'Bot stopped!' : data.msg);
-            update();
-          }
+  <!-- ROW 4: Bot info cards -->
+  <div class="grid grid-4">
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">🎮</span>Version</div>
+      <div class="card-value" style="font-size:16px;" id="c-ver">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">👤</span>Username</div>
+      <div class="card-value" style="font-size:16px;">${config["bot-account"].username}</div>
+    </div>
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">🕵️</span>Stealth</div>
+      <div class="card-value" style="font-size:16px;" id="c-stealth">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label"><span class="card-label-icon">🛏</span>Bed State</div>
+      <div class="card-value" style="font-size:16px;" id="c-bed">Awake</div>
+    </div>
+  </div>
 
-          setInterval(update, 5000);
-          update();
-        </script>
-      </body>
-    </html>
-  `);
+  <div class="page-footer">
+    Bot Tracker v3.0 &nbsp;·&nbsp; ${config.name} &nbsp;·&nbsp; Updates every 3 seconds
+  </div>
+</div>
+
+<script>
+  function fmtUptime(s) {
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+    if (h > 0) return h + 'h ' + m + 'm ' + sec + 's';
+    if (m > 0) return m + 'm ' + sec + 's';
+    return sec + 's';
+  }
+
+  function fmtTime(ticks) {
+    // MC day starts at 6000 ticks = 6:00 AM
+    if (ticks === null || ticks === undefined) return '—';
+    const real = ((ticks + 6000) % 24000);
+    const h = Math.floor(real / 1000);
+    const m = Math.floor((real % 1000) / 1000 * 60);
+    const hh = String(h).padStart(2,'0');
+    const mm = String(m).padStart(2,'0');
+    return hh + ':' + mm;
+  }
+
+  function timeLabel(ticks) {
+    if (ticks === null || ticks === undefined) return '';
+    const t = (ticks + 6000) % 24000;
+    if (t < 1000) return '🌅 Dawn';
+    if (t < 6000) return '☀️ Morning';
+    if (t < 12000) return '🌞 Noon';
+    if (t < 14000) return '🌆 Afternoon';
+    if (t < 15500) return '🌇 Sunset';
+    if (t < 17000) return '🌆 Dusk';
+    return '🌙 Night';
+  }
+
+  function timePct(ticks) {
+    if (ticks === null || ticks === undefined) return 0;
+    return ((ticks % 24000) / 24000) * 100;
+  }
+
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch('/health');
+      const d = await r.json();
+      const online = d.status === 'connected';
+      const sleeping = d.isSleeping;
+      const going = d.isGoingToBed;
+
+      // Hero
+      const hero  = document.getElementById('hero');
+      const hIcon = document.getElementById('hero-icon');
+      const hTitle = document.getElementById('hero-title');
+      const hSub  = document.getElementById('hero-sub');
+      const hTags = document.getElementById('hero-tags');
+
+      let heroClass = online ? (sleeping ? 'sleeping' : 'online') : 'offline';
+      hero.className  = 'status-hero ' + heroClass;
+      hIcon.className = 'status-avatar ' + heroClass;
+      hIcon.textContent = sleeping ? '🛌' : (going ? '🚶' : (online ? '✅' : '⚫'));
+      hTitle.className = 'status-title ' + heroClass;
+      hTitle.textContent = sleeping ? 'Sleeping in Bed' : (going ? 'Walking to Bed…' : (online ? 'Online' : 'Offline'));
+      hSub.textContent = online
+        ? 'Connected to ' + d.serverIp + (d.version ? ' (' + d.version + ')' : '')
+        : 'Reconnecting… (attempt #' + d.reconnectAttempts + ')';
+
+      // Tags
+      const tags = [];
+      if (online && d.stealth) tags.push('<span class="tag tag-purple">👻 Ghost Mode</span>');
+      if (sleeping) tags.push('<span class="tag tag-blue">🛌 Sleeping</span>');
+      if (online && !sleeping) tags.push('<span class="tag tag-green">✅ Active</span>');
+      if (!online) tags.push('<span class="tag tag-red">⚡ Reconnecting</span>');
+      if (d.reconnectAttempts > 0) tags.push('<span class="tag tag-orange">🔄 ' + d.reconnectAttempts + ' reconnects</span>');
+      hTags.innerHTML = tags.join('');
+
+      // Uptime
+      setText('c-uptime', fmtUptime(d.uptime));
+      setText('c-reconnects', 'Reconnects: ' + d.reconnectAttempts);
+
+      // Health
+      const hp = Math.round(d.health);
+      setText('c-health', hp);
+      const hpPct = Math.max(0, Math.min(100, (d.health / 20) * 100));
+      document.getElementById('bar-health').style.width = hpPct + '%';
+      setText('c-health-sub', hp <= 4 ? '⚠️ Critical HP!' : hp <= 10 ? '💛 Low HP' : '💚 Healthy');
+
+      // Food
+      const food = Math.round(d.food);
+      setText('c-food', food);
+      const foodPct = Math.max(0, Math.min(100, (d.food / 20) * 100));
+      document.getElementById('bar-food').style.width = foodPct + '%';
+      setText('c-food-sub', food <= 6 ? '⚠️ Very hungry!' : food <= 12 ? '🍗 A bit hungry' : '✅ Well fed');
+
+      // Coords
+      if (d.coords) {
+        setText('c-x', Math.floor(d.coords.x));
+        setText('c-y', Math.floor(d.coords.y));
+        setText('c-z', Math.floor(d.coords.z));
+      } else {
+        ['c-x','c-y','c-z'].forEach(id => setText(id, '—'));
+      }
+      setText('c-dim', 'Dimension: ' + (d.dimension || '—'));
+
+      // Time
+      setText('c-time', fmtTime(d.gameTime) + '  ' + timeLabel(d.gameTime));
+      const pct = timePct(d.gameTime);
+      document.getElementById('time-cursor').style.left = pct + '%';
+
+      // Players
+      setText('c-players', d.playersOnline + ' player' + (d.playersOnline !== 1 ? 's' : ''));
+      const pList = document.getElementById('player-list');
+      if (d.players && d.players.length > 0) {
+        pList.innerHTML = d.players.map(p =>
+          '<div class="player-item"><div class="player-dot"></div>' + p + '</div>'
+        ).join('');
+      } else {
+        pList.innerHTML = '<div class="player-empty">No other players online</div>';
+      }
+
+      // Memory
+      setText('c-mem', d.memoryUsage);
+      const memPct = Math.min(100, (d.memoryUsage / 256) * 100);
+      document.getElementById('bar-mem').style.width = memPct + '%';
+
+      // Info cards
+      setText('c-ver', d.version || '—');
+      setText('c-stealth', d.stealth ? '👻 Active' : '⚪ Off');
+      setText('c-bed', d.isSleeping ? '😴 Sleeping' : (d.isGoingToBed ? '🚶 Walking…' : '☀️ Awake'));
+
+      // Last update
+      setText('last-update', 'Updated ' + new Date().toLocaleTimeString());
+    } catch(e) {
+      document.getElementById('hero-title').textContent = 'Unreachable';
+    }
+  }
+
+  async function doStart() {
+    const r = await fetch('/start', { method: 'POST' });
+    const d = await r.json();
+    if (!d.success) alert(d.msg);
+    refresh();
+  }
+  async function doStop() {
+    if (!confirm('Stop the bot?')) return;
+    const r = await fetch('/stop', { method: 'POST' });
+    const d = await r.json();
+    if (!d.success) alert(d.msg);
+    refresh();
+  }
+  async function doSleep() {
+    const r = await fetch('/command', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({command: '/sleep'})
+    });
+    const d = await r.json();
+    alert(d.msg || 'Sleep triggered');
+    refresh();
+  }
+
+  refresh();
+  setInterval(refresh, 3000);
+</script>
+</body>
+</html>`);
 });
+
 app.get("/tutorial", (req, res) => {
+
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -472,15 +852,27 @@ app.get("/tutorial", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
+  const playerList = bot && bot.players ? Object.keys(bot.players).filter(u => u !== (bot.username || "")) : [];
   res.json({
     status: botState.connected ? "connected" : "disconnected",
     uptime: Math.floor((Date.now() - botState.startTime) / 1000),
     coords: bot && bot.entity ? bot.entity.position : null,
     isSleeping: bot ? Boolean(bot.isSleeping) : false,
+    isGoingToBed: botState.isGoingToBed,
     stealth: Boolean(config.stealth && config.stealth.enabled),
     lastActivity: botState.lastActivity,
     reconnectAttempts: botState.reconnectAttempts,
-    memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024,
+    memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    health: bot ? (bot.health || 0) : 0,
+    food: bot ? (bot.food || 0) : 0,
+    username: config["bot-account"].username,
+    serverIp: config.server.ip,
+    version: bot ? (bot.version || "") : "",
+    playersOnline: playerList.length,
+    players: playerList.slice(0, 20),
+    dimension: bot && bot.game ? (bot.game.dimension || "unknown") : "unknown",
+    gameTime: bot && bot.time ? bot.time.timeOfDay : null,
+    errors: botState.errors.slice(-5),
   });
 });
 
