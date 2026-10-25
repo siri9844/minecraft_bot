@@ -62,10 +62,19 @@
       "interval": 10000
     }
   },
+  "stealth": {
+    "enabled": true,
+    "silent": true,
+    "constant-sneak": true,
+    "hide-nametag": true,
+    "try-vanish": true,
+    "try-invisibility": true,
+    "try-spectator": false
+  },
   "modules": {
     "avoidMobs": true,
     "combat": false,
-    "beds": false,
+    "beds": true,
     "chat": true,
     "console-commands": true
   },
@@ -74,6 +83,12 @@
     "auto-eat": true
   },
   "beds": {
+    "enabled": true,
+    "sleep-at-night": true,
+    "sleep-on-player-request": true,
+    "sleep-on-players-sleeping": true,
+    "search-radius": 32,
+    "chat-announcements": false,
     "pick-up-day": false,
     "place-night": false
   },
@@ -87,6 +102,6 @@
     }
   },
   "chat": {
-    "respond": true
+    "respond": false
   }
 }

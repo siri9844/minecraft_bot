@@ -24,7 +24,15 @@ let botState = {
   startTime: Date.now(),
   errors: [],
   wasThrottled: false,
+  isGoingToBed: false,
 };
+
+function isSleepingOrGoingToBed(botInstance) {
+  return Boolean(
+    (botInstance && botInstance.isSleeping) ||
+    (botState && botState.isGoingToBed)
+  );
+}
 
 // Health check endpoint for monitoring
 app.get('/', (req, res) => {
@@ -221,10 +229,10 @@ app.get('/', (req, res) => {
 
               section.className = 'status-section ' + (online ? 'online' : 'offline');
               icon.className    = 'status-icon '    + (online ? 'online' : 'offline');
-              icon.textContent  = online ? '✓' : '✗';
+              icon.textContent  = online ? (data.isSleeping ? '🛏️' : '✓') : '✗';
               label.className   = 'status-label '   + (online ? 'online' : 'offline');
-              label.textContent = online ? 'Connected' : 'Disconnected';
-              detail.textContent = online ? 'Bot is active on the server' : 'Attempting to reconnect';
+              label.textContent = online ? (data.isSleeping ? 'Sleeping in bed' : 'Connected') : 'Disconnected';
+              detail.textContent = online ? (data.isSleeping ? 'Passing the night for players' : 'Bot is active on the server') : 'Attempting to reconnect';
 
               document.getElementById('uptime-text').textContent = formatUptime(data.uptime);
 
@@ -468,6 +476,8 @@ app.get("/health", (req, res) => {
     status: botState.connected ? "connected" : "disconnected",
     uptime: Math.floor((Date.now() - botState.startTime) / 1000),
     coords: bot && bot.entity ? bot.entity.position : null,
+    isSleeping: bot ? Boolean(bot.isSleeping) : false,
+    stealth: Boolean(config.stealth && config.stealth.enabled),
     lastActivity: botState.lastActivity,
     reconnectAttempts: botState.reconnectAttempts,
     memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024,
@@ -817,6 +827,9 @@ app.get("/logs", (req, res) => {
               { name: '/status', desc: 'Show connection status & uptime' },
               { name: '/list',   desc: 'List players on the server' },
               { name: '/say',    desc: 'Send a chat message in-game' },
+              { name: '/sleep',  desc: 'Make the bot find a bed and sleep' },
+              { name: '/wake',   desc: 'Wake the bot up from bed' },
+              { name: '/stealth',desc: 'Toggle or check stealth/vanish mode' },
             ];
 
             function scrollBottom() {
@@ -1015,11 +1028,56 @@ app.post("/command", express.json(), (req, res) => {
       "  /status        - Show bot connection status",
       "  /list          - Ask server for player list",
       "  /say <message> - Send a chat message in-game",
+      "  /sleep         - Find nearest bed and sleep",
+      "  /wake          - Wake up the bot from bed",
+      "  /stealth       - Check stealth/vanish status or trigger stealth",
       "  /<anything>    - Send any Minecraft command directly",
       "  <text>         - Send plain chat (no slash needed)",
     ];
     lines.forEach((l) => addLog(`[Console] ${l}`));
     return res.json({ success: true, msg: lines.join("\n") });
+  }
+
+  if (cmd === "/stealth") {
+    const isStealth = Boolean(config.stealth && config.stealth.enabled);
+    const msg = `Stealth mode: ${isStealth ? "ACTIVE (Hidden)" : "DISABLED"}. Sneaking: ${config.stealth && config.stealth["constant-sneak"]}, Silent: ${config.stealth && config.stealth.silent}`;
+    addLog(`[Console] ${msg}`);
+    if (bot && botState.connected) {
+      if (typeof bot.setControlState === "function") {
+        bot.setControlState("sneak", true);
+      }
+      try { bot.chat("/vanish"); } catch (e) {}
+      try { bot.chat("/v"); } catch (e) {}
+      try { bot.chat("/effect give @s minecraft:invisibility infinite 1 true"); } catch (e) {}
+      try { bot.chat("/effect give @s invisibility 999999 1 true"); } catch (e) {}
+    }
+    return res.json({ success: true, msg });
+  }
+
+  if (cmd === "/sleep") {
+    if (!bot || !botState.connected) {
+      return res.json({ success: false, msg: "Bot is not connected." });
+    }
+    if (typeof bot.goToBed === "function") {
+      bot.goToBed("Console command (/sleep)");
+      return res.json({ success: true, msg: "Sleep routine triggered." });
+    }
+    return res.json({ success: false, msg: "Bed module is not active." });
+  }
+
+  if (cmd === "/wake") {
+    if (!bot || !botState.connected) {
+      return res.json({ success: false, msg: "Bot is not connected." });
+    }
+    if (bot.isSleeping) {
+      bot.wake().then(() => {
+        addLog("[Console] Bot woke up.");
+      }).catch((e) => {
+        addLog(`[Console] Error waking up: ${e.message}`);
+      });
+      return res.json({ success: true, msg: "Waking up bot..." });
+    }
+    return res.json({ success: false, msg: "Bot is not currently sleeping." });
   }
 
   if (cmd === "/pos" || cmd === "/coords") {
@@ -1034,7 +1092,8 @@ app.post("/command", express.json(), (req, res) => {
   if (cmd === "/status") {
     const status = botState.connected ? "Connected" : "Disconnected";
     const uptime = Math.floor((Date.now() - botState.startTime) / 1000);
-    const msg = `Status: ${status} | Uptime: ${uptime}s | Reconnects: ${botState.reconnectAttempts}`;
+    const sleeping = bot && bot.isSleeping ? " (Sleeping in bed)" : "";
+    const msg = `Status: ${status}${sleeping} | Uptime: ${uptime}s | Reconnects: ${botState.reconnectAttempts}`;
     addLog(`[Console] ${msg}`);
     return res.json({ success: true, msg });
   }
@@ -1523,12 +1582,75 @@ function initializeModules(bot, mcData, defaultMove) {
     addLog("[Position] Navigating to configured position...");
   }
 
+  // ---------- STEALTH MODE ----------
+  if (config.stealth && config.stealth.enabled) {
+    addLog("[Stealth] Stealth mode is ACTIVE: hiding player visibility and suppressing indicators.");
+
+    // Constant sneak (hides nametag through blocks, mutes footsteps, shrinks hitbox)
+    if (config.stealth["constant-sneak"]) {
+      try {
+        if (typeof bot.setControlState === "function") {
+          bot.setControlState("sneak", true);
+        }
+      } catch (e) {}
+
+      addInterval(() => {
+        if (!bot || !botState.connected || isSleepingOrGoingToBed(bot)) return;
+        try {
+          if (typeof bot.setControlState === "function") {
+            bot.setControlState("sneak", true);
+          }
+        } catch (e) {}
+      }, 1500);
+    }
+
+    // Attempt stealth commands if server supports them (spectator, vanish, invisibility with hidden particles, team nametag)
+    setTimeout(() => {
+      if (!bot || !botState.connected) return;
+
+      if (config.stealth["try-spectator"]) {
+        try {
+          bot.chat("/gamemode spectator");
+          addLog("[Stealth] Attempted /gamemode spectator");
+        } catch (e) {}
+      } else {
+        if (config.stealth["try-vanish"]) {
+          try { bot.chat("/vanish"); } catch (e) {}
+          try { bot.chat("/v"); } catch (e) {}
+          addLog("[Stealth] Attempted /vanish and /v");
+        }
+
+        if (config.stealth["try-invisibility"]) {
+          // 'true' at the end hides potion swirl particles
+          try { bot.chat("/effect give @s minecraft:invisibility infinite 1 true"); } catch (e) {}
+          try { bot.chat("/effect give @s invisibility 999999 1 true"); } catch (e) {}
+          addLog("[Stealth] Attempted invisibility (no particles)");
+        }
+
+        if (config.stealth["hide-nametag"]) {
+          try {
+            bot.chat("/team add stealth_hide");
+            bot.chat("/team modify stealth_hide nametagVisibility never");
+            bot.chat("/team join stealth_hide @s");
+            addLog("[Stealth] Attempted team nametag visibility hide");
+          } catch (e) {}
+        }
+      }
+    }, 3500);
+  }
+
   // ---------- ANTI-AFK ----------
   if (config.utils["anti-afk"] && config.utils["anti-afk"].enabled) {
     // Arm swinging
     addInterval(
       () => {
-        if (!bot || !botState.connected) return;
+        if (
+          !bot ||
+          !botState.connected ||
+          isSleepingOrGoingToBed(bot) ||
+          (config.stealth && config.stealth.enabled)
+        )
+          return;
         try {
           bot.swingArm();
         } catch (e) {}
@@ -1539,7 +1661,7 @@ function initializeModules(bot, mcData, defaultMove) {
     // Hotbar cycling
     addInterval(
       () => {
-        if (!bot || !botState.connected) return;
+        if (!bot || !botState.connected || isSleepingOrGoingToBed(bot)) return;
         try {
           const slot = Math.floor(Math.random() * 9);
           bot.setQuickBarSlot(slot);
@@ -1554,13 +1676,15 @@ function initializeModules(bot, mcData, defaultMove) {
         if (
           !bot ||
           !botState.connected ||
+          isSleepingOrGoingToBed(bot) ||
+          (config.stealth && config.stealth.enabled) ||
           typeof bot.setControlState !== "function"
         )
           return;
         if (Math.random() > 0.9) {
           let count = 2 + Math.floor(Math.random() * 4);
           const doTeabag = () => {
-            if (count <= 0 || !bot || typeof bot.setControlState !== "function")
+            if (count <= 0 || !bot || isSleepingOrGoingToBed(bot) || typeof bot.setControlState !== "function")
               return;
             try {
               bot.setControlState("sneak", true);
@@ -1591,6 +1715,8 @@ function initializeModules(bot, mcData, defaultMove) {
           if (
             !bot ||
             !botState.connected ||
+            isSleepingOrGoingToBed(bot) ||
+            (config.stealth && config.stealth.enabled) ||
             typeof bot.setControlState !== "function"
           )
             return;
@@ -1663,8 +1789,8 @@ function initializeModules(bot, mcData, defaultMove) {
   if (config.modules.combat) {
     combatModule(bot, mcData);
   }
-  if (config.modules.beds) {
-    bedModule(bot, mcData);
+  if (config.modules.beds || (config.beds && config.beds.enabled)) {
+    bedModule(bot, mcData, defaultMove);
   }
   if (config.modules.chat) {
     chatModule(bot);
@@ -1687,7 +1813,7 @@ function startRoaming(bot, defaultMove) {
   );
 
   addInterval(() => {
-    if (!bot || !botState.connected || !bot.entity || isNavigating) return;
+    if (!bot || !botState.connected || !bot.entity || isNavigating || isSleepingOrGoingToBed(bot)) return;
 
     if (!homePos) {
       homePos = bot.entity.position.clone();
@@ -1738,7 +1864,7 @@ function startCircleWalk(bot, defaultMove) {
   let lastPathTime = 0;
 
   addInterval(() => {
-    if (!bot || !botState.connected) return;
+    if (!bot || !botState.connected || isSleepingOrGoingToBed(bot)) return;
     const now = Date.now();
     if (now - lastPathTime < 2000) return;
     lastPathTime = now;
@@ -1766,6 +1892,8 @@ function startRandomJump(bot) {
     if (
       !bot ||
       !botState.connected ||
+      isSleepingOrGoingToBed(bot) ||
+      (config.stealth && config.stealth.enabled) ||
       typeof bot.setControlState !== "function"
     )
       return;
@@ -1784,7 +1912,13 @@ function startRandomJump(bot) {
 
 function startLookAround(bot) {
   addInterval(() => {
-    if (!bot || !botState.connected) return;
+    if (
+      !bot ||
+      !botState.connected ||
+      isSleepingOrGoingToBed(bot) ||
+      (config.stealth && config.stealth.enabled)
+    )
+      return;
     try {
       const yaw = Math.random() * Math.PI * 2 - Math.PI;
       const pitch = (Math.random() * Math.PI) / 2 - Math.PI / 4;
@@ -1808,6 +1942,7 @@ function avoidMobs(bot) {
     if (
       !bot ||
       !botState.connected ||
+      isSleepingOrGoingToBed(bot) ||
       typeof bot.setControlState !== "function"
     )
       return;
@@ -1846,7 +1981,7 @@ function combatModule(bot, mcData) {
 
   // FIX: use physicsTick (not the deprecated physicTick)
   bot.on("physicsTick", () => {
-    if (!bot || !botState.connected) return;
+    if (!bot || !botState.connected || isSleepingOrGoingToBed(bot)) return;
     if (!config.combat["attack-mobs"]) return;
 
     const now = Date.now();
@@ -1910,44 +2045,336 @@ function combatModule(bot, mcData) {
   });
 }
 
-// Bed module
-// FIX: bot.isSleeping can be stale; use a local isTryingToSleep guard to prevent double-sleep errors
-// FIX: place-night was false in default settings - documentation note added
-function bedModule(bot, mcData) {
-  let isTryingToSleep = false;
+// Bed module - Automatically sleep when players try to sleep or when it's night
+function bedModule(bot, mcData, defaultMove) {
+  let isNavigatingToBed = false;
+  let lastAttemptTime = 0;
+  let lastChatAlertTime = 0;
+  const searchRadius = (config.beds && config.beds["search-radius"]) || 32;
 
-  addInterval(async () => {
-    if (!bot || !botState.connected) return;
-    if (!config.beds["place-night"]) return; // FIX: check flag (was always skipping before)
+  botState.isGoingToBed = false;
+
+  function isNightOrStorm() {
+    if (!bot || !bot.time) return false;
+    const timeOfDay = bot.time.timeOfDay;
+    const isNight = timeOfDay >= 12500 && timeOfDay <= 23500;
+    const isStorm = Boolean(bot.isRaining);
+    return isNight || isStorm;
+  }
+
+  function findNearbyBed() {
+    if (!bot || !bot.entity) return null;
+
+    // 1. Try to find unoccupied bed block
+    try {
+      const bed = bot.findBlock({
+        matching: (block) => {
+          if (!block || !block.name || !block.name.includes("bed")) return false;
+          if (
+            block._properties &&
+            (block._properties.occupied === true || block._properties.occupied === "true")
+          ) {
+            return false;
+          }
+          return true;
+        },
+        maxDistance: searchRadius,
+      });
+      if (bed) return bed;
+    } catch (e) {}
+
+    // 2. Fallback to any bed block within radius
+    try {
+      return bot.findBlock({
+        matching: (block) => block && block.name && block.name.includes("bed"),
+        maxDistance: searchRadius,
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function goToBed(triggerReason = "routine") {
+    if (!bot || !botState.connected || !bot.entity) return false;
+    if (bot.isSleeping) {
+      addLog(`[Bed] Bot is already sleeping in bed.`);
+      return true;
+    }
+    if (isNavigatingToBed) {
+      return false;
+    }
+
+    const now = Date.now();
+    if (now - lastAttemptTime < 8000) {
+      return false; // Debounce rapid triggers
+    }
+    lastAttemptTime = now;
+
+    if (!isNightOrStorm()) {
+      addLog(`[Bed] Sleep skipped: it is daytime and not thundering.`);
+      return false;
+    }
+
+    addLog(`[Bed] Sleep triggered by: ${triggerReason}`);
+
+    let bedBlock = findNearbyBed();
+
+    // If no bed placed nearby, check if bot has a bed in inventory to place
+    if (!bedBlock && config.beds && config.beds["place-night"]) {
+      try {
+        const bedItem = bot.inventory
+          .items()
+          .find((i) => i.name && i.name.includes("bed"));
+        if (bedItem) {
+          addLog(`[Bed] No bed found nearby. Attempting to place bed from inventory...`);
+          const refBlock = bot.findBlock({
+            matching: (b) => b && b.boundingBox === "block" && !b.name.includes("air"),
+            maxDistance: 4,
+          });
+          if (refBlock) {
+            await bot.equip(bedItem, "hand");
+            const { Vec3 } = require("vec3");
+            await bot.placeBlock(refBlock, new Vec3(0, 1, 0));
+            addLog(`[Bed] Placed bed on ${refBlock.name}`);
+            await new Promise((r) => setTimeout(r, 600));
+            bedBlock = findNearbyBed();
+          }
+        }
+      } catch (placeErr) {
+        addLog(`[Bed] Failed to place bed: ${placeErr.message}`);
+      }
+    }
+
+    if (!bedBlock) {
+      addLog(`[Bed] No bed found within ${searchRadius} blocks. Place a bed near the bot so it can sleep.`);
+      if (
+        now - lastChatAlertTime > 45000 &&
+        config.beds &&
+        config.beds["chat-announcements"] &&
+        !(config.stealth && config.stealth.silent)
+      ) {
+        lastChatAlertTime = now;
+        try {
+          bot.chat("I need a bed to sleep! Please place one near me.");
+        } catch (e) {}
+      }
+      return false;
+    }
+
+    isNavigatingToBed = true;
+    botState.isGoingToBed = true;
 
     try {
-      const isNight =
-        bot.time.timeOfDay >= 12500 && bot.time.timeOfDay <= 23500;
+      try { bot.clearControlStates(); } catch (e) {}
 
-      // FIX: use local guard instead of stale bot.isSleeping
-      if (isNight && !isTryingToSleep) {
-        const bedBlock = bot.findBlock({
-          matching: (block) => block.name.includes("bed"),
-          maxDistance: 8,
-        });
+      const dist = bot.entity.position.distanceTo(bedBlock.position);
+      if (dist > 3.0) {
+        addLog(
+          `[Bed] Walking to bed at X:${bedBlock.position.x} Y:${bedBlock.position.y} Z:${bedBlock.position.z} (${dist.toFixed(1)} blocks away)...`
+        );
 
-        if (bedBlock) {
-          isTryingToSleep = true;
+        if (bot.pathfinder) {
           try {
-            await bot.sleep(bedBlock);
-            addLog("[Bed] Sleeping...");
-          } catch (e) {
-            // Can't sleep - maybe not night enough or monsters nearby
-          } finally {
-            isTryingToSleep = false;
+            bot.pathfinder.setMovements(defaultMove);
+            await new Promise((resolve) => {
+              const navTimeout = setTimeout(() => {
+                try { bot.pathfinder.stop(); } catch (e) {}
+                resolve();
+              }, 12000);
+
+              bot.pathfinder
+                .goto(new GoalNear(bedBlock.position.x, bedBlock.position.y, bedBlock.position.z, 2))
+                .then(() => {
+                  clearTimeout(navTimeout);
+                  resolve();
+                })
+                .catch((err) => {
+                  clearTimeout(navTimeout);
+                  addLog(`[Bed] Pathfinding notice: ${err.message}`);
+                  resolve();
+                });
+            });
+          } catch (navErr) {
+            addLog(`[Bed] Navigation error: ${navErr.message}`);
           }
         }
       }
+
+      const currentDist = bot.entity.position.distanceTo(bedBlock.position);
+      if (currentDist > 4.5) {
+        addLog(`[Bed] Bed out of reach (${currentDist.toFixed(1)} blocks away). Cannot sleep.`);
+        return false;
+      }
+
+      addLog(`[Bed] Entering bed at ${bedBlock.position.x}, ${bedBlock.position.y}, ${bedBlock.position.z}...`);
+      await bot.sleep(bedBlock);
+      addLog(`[Bed] Zzz... Bot is now sleeping in bed!`);
+
+      if (
+        config.beds &&
+        config.beds["chat-announcements"] &&
+        !(config.stealth && config.stealth.silent) &&
+        now - lastChatAlertTime > 20000
+      ) {
+        lastChatAlertTime = now;
+        try {
+          bot.chat("I'm in bed now! Good night! 🛏️");
+        } catch (e) {}
+      }
+
+      return true;
     } catch (e) {
-      isTryingToSleep = false;
-      addLog("[Bed] Error:", e.message);
+      addLog(`[Bed] Could not sleep: ${e.message}`);
+      return false;
+    } finally {
+      isNavigatingToBed = false;
+      if (!bot.isSleeping) {
+        botState.isGoingToBed = false;
+      }
     }
-  }, 10000);
+  }
+
+  // Event: bot enters bed
+  bot.on("sleep", () => {
+    botState.isGoingToBed = true;
+    addLog(`[Bed] Bot entered bed (bot.isSleeping = true). Pausing movement and anti-afk.`);
+  });
+
+  // Event: bot wakes up
+  bot.on("wake", async () => {
+    botState.isGoingToBed = false;
+    isNavigatingToBed = false;
+    addLog(`[Bed] Bot woke up! (bot.isSleeping = false). Morning has arrived.`);
+
+    if (
+      config.beds &&
+      config.beds["chat-announcements"] &&
+      !(config.stealth && config.stealth.silent)
+    ) {
+      try {
+        bot.chat("Good morning! ☀️");
+      } catch (e) {}
+    }
+
+    if (config.beds && config.beds["pick-up-day"]) {
+      try {
+        const bedBlock = findNearbyBed();
+        if (bedBlock && bot.canDigBlock(bedBlock)) {
+          addLog(`[Bed] Picking up bed (pick-up-day is enabled)...`);
+          await bot.dig(bedBlock);
+          addLog(`[Bed] Bed picked up.`);
+        }
+      } catch (e) {
+        addLog(`[Bed] Error picking up bed: ${e.message}`);
+      }
+    }
+  });
+
+  // 1. Detection: Server messages (Chat, Action Bar, System notices)
+  bot.on("messagestr", (msg) => {
+    if (!msg) return;
+    const lower = msg.toLowerCase();
+
+    const isSleepNotice =
+      lower.includes("players sleeping") ||
+      lower.includes("player is sleeping") ||
+      lower.includes("to skip to dawn") ||
+      lower.includes("skipping night") ||
+      lower.includes("went to bed") ||
+      lower.includes("is now sleeping") ||
+      lower.includes("players are sleeping") ||
+      lower.includes("sleep.players_sleeping");
+
+    if (isSleepNotice) {
+      addLog(`[Bed] Detected sleeping notice: "${msg}"`);
+      goToBed("Server sleep notice");
+    }
+  });
+
+  // 2. Detection: Chat messages from players asking to sleep
+  bot.on("chat", (username, message) => {
+    if (!bot || username === bot.username) return;
+    const lower = message.toLowerCase().trim();
+
+    const sleepKeywords = [
+      "sleep",
+      "sleeping",
+      "!sleep",
+      "pls sleep",
+      "please sleep",
+      "bot sleep",
+      "go to sleep",
+      "bed",
+      "skip night",
+      "night skip",
+      "good night",
+      "gn",
+    ];
+
+    const requested = sleepKeywords.some((kw) => {
+      const reg = new RegExp(`(^|\\b)${kw}(\\b|$)`, "i");
+      return reg.test(lower);
+    });
+
+    if (requested) {
+      addLog(`[Bed] Player ${username} mentioned sleep in chat: "${message}"`);
+      goToBed(`Player ${username} in chat`);
+    }
+  });
+
+  // 3. Detection: Nearby player entity enters bed (pose === sleeping)
+  const checkSleepingEntities = () => {
+    if (!bot || !botState.connected || !bot.entities || bot.isSleeping || isNavigatingToBed) return;
+    try {
+      for (const id in bot.entities) {
+        const entity = bot.entities[id];
+        if (!entity || entity.type !== "player" || entity.username === bot.username) continue;
+
+        const isPlayerSleeping =
+          entity.pose === "sleeping" ||
+          entity.pose === 2 ||
+          entity.isInBed === true ||
+          (entity.metadata && entity.metadata[6] === 2);
+
+        if (isPlayerSleeping) {
+          addLog(`[Bed] Detected player ${entity.username || id} sleeping in bed nearby!`);
+          goToBed(`Player ${entity.username || id} sleeping nearby`);
+          break;
+        }
+      }
+    } catch (e) {}
+  };
+
+  addInterval(checkSleepingEntities, 3000);
+
+  // 4. Periodic time check (Night time or thunderstorm auto-sleep)
+  addInterval(() => {
+    if (!bot || !botState.connected) return;
+
+    // Daytime safety check: wake up if daytime
+    if (bot.isSleeping && !isNightOrStorm()) {
+      addLog(`[Bed] Daytime detected while in bed. Waking up...`);
+      try {
+        bot.wake().catch(() => {});
+      } catch (e) {}
+      botState.isGoingToBed = false;
+      return;
+    }
+
+    // Auto-sleep check at night
+    if (isNightOrStorm() && !bot.isSleeping && !isNavigatingToBed) {
+      const otherPlayersOnline =
+        Object.keys(bot.players || {}).filter((u) => u !== bot.username).length > 0;
+      const sleepAtNightEnabled = config.beds && config.beds["sleep-at-night"] !== false;
+
+      if (sleepAtNightEnabled && otherPlayersOnline) {
+        goToBed("Night time (other players online)");
+      }
+    }
+  }, 5000);
+
+  // Expose goToBed method on bot instance
+  bot.goToBed = goToBed;
 }
 
 // Chat module
@@ -1966,6 +2393,8 @@ function chatModule(bot) {
       ) {
         sendDiscordWebhook(`💬 **${username}**: ${message}`, 0x7289da);
       }
+
+      if (config.stealth && config.stealth.silent) return;
 
       if (config.chat && config.chat.respond) {
         const lowerMsg = message.toLowerCase();
@@ -2005,9 +2434,36 @@ rl.on("line", (line) => {
   } else if (trimmed.startsWith("cmd ")) {
     bot.chat("/" + trimmed.slice(4));
   } else if (trimmed === "status") {
+    const sleeping = bot && bot.isSleeping ? " (Sleeping in bed)" : "";
     addLog(
-      `Connected: ${botState.connected}, Uptime: ${formatUptime(Math.floor((Date.now() - botState.startTime) / 1000))}`,
+      `Connected: ${botState.connected}${sleeping}, Uptime: ${formatUptime(Math.floor((Date.now() - botState.startTime) / 1000))}`,
     );
+  } else if (trimmed === "stealth" || trimmed === "/stealth") {
+    const isStealth = Boolean(config.stealth && config.stealth.enabled);
+    addLog(`[Console] Stealth mode: ${isStealth ? "ACTIVE (Hidden)" : "DISABLED"}`);
+    if (bot && botState.connected) {
+      if (typeof bot.setControlState === "function") bot.setControlState("sneak", true);
+      try { bot.chat("/vanish"); } catch (e) {}
+      try { bot.chat("/v"); } catch (e) {}
+      try { bot.chat("/effect give @s minecraft:invisibility infinite 1 true"); } catch (e) {}
+      try { bot.chat("/effect give @s invisibility 999999 1 true"); } catch (e) {}
+    }
+  } else if (trimmed === "sleep" || trimmed === "/sleep") {
+    if (typeof bot.goToBed === "function") {
+      bot.goToBed("Terminal command (sleep)");
+    } else {
+      addLog("[Console] Bed module is not active.");
+    }
+  } else if (trimmed === "wake" || trimmed === "/wake") {
+    if (bot.isSleeping) {
+      bot.wake().then(() => {
+        addLog("[Console] Bot woke up.");
+      }).catch((e) => {
+        addLog(`[Console] Error waking: ${e.message}`);
+      });
+    } else {
+      addLog("[Console] Bot is not currently sleeping.");
+    }
   } else {
     bot.chat(trimmed);
   }
