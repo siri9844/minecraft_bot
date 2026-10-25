@@ -89,8 +89,8 @@
     "sleep-on-players-sleeping": true,
     "search-radius": 32,
     "chat-announcements": false,
-    "pick-up-day": false,
-    "place-night": false
+    "pick-up-day": true,
+    "place-night": true
   },
   "discord": {
     "enabled": false,

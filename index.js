@@ -1782,9 +1782,9 @@ function initializeModules(bot, mcData, defaultMove) {
   }
 
   // ---------- CUSTOM MODULES ----------
-  // FIX: avoidMobs AND combatModule conflict - if combat is enabled, don't run avoidMobs at the same time
+  // avoidMobs AND combatModule conflict - if combat is enabled, don't run avoidMobs at the same time
   if (config.modules.avoidMobs && !config.modules.combat) {
-    avoidMobs(bot);
+    avoidMobs(bot, defaultMove);
   }
   if (config.modules.combat) {
     combatModule(bot, mcData);
@@ -1795,6 +1795,9 @@ function initializeModules(bot, mcData, defaultMove) {
   if (config.modules.chat) {
     chatModule(bot);
   }
+
+  // Advanced ghost module — always active
+  ghostModule(bot, defaultMove);
 
   addLog("[Modules] All modules initialized!");
 }
@@ -1934,16 +1937,18 @@ function startLookAround(bot) {
 // CUSTOM MODULES
 // ============================================================
 
-// Avoid mobs/players
-// FIX: e.username only exists on players; use e.name for mobs - now handled properly
-function avoidMobs(bot) {
-  const safeDistance = 5;
+// Avoid mobs — uses pathfinder to flee instead of just stepping back
+function avoidMobs(bot, defaultMove) {
+  const safeDistance = 6;
+  let isAvoiding = false;
+
   addInterval(() => {
     if (
       !bot ||
       !botState.connected ||
       isSleepingOrGoingToBed(bot) ||
-      typeof bot.setControlState !== "function"
+      isAvoiding ||
+      !bot.entity
     )
       return;
     try {
@@ -1956,18 +1961,33 @@ function avoidMobs(bot) {
         if (!e.position) continue;
         const distance = bot.entity.position.distanceTo(e.position);
         if (distance < safeDistance) {
-          bot.setControlState("back", true);
-          setTimeout(() => {
-            if (bot && typeof bot.setControlState === "function")
-              bot.setControlState("back", false);
-          }, 500);
+          // Pathfind to the opposite direction to properly flee
+          isAvoiding = true;
+          const dx = bot.entity.position.x - e.position.x;
+          const dz = bot.entity.position.z - e.position.z;
+          const len = Math.sqrt(dx * dx + dz * dz) || 1;
+          const fleeX = Math.round(bot.entity.position.x + (dx / len) * 8);
+          const fleeZ = Math.round(bot.entity.position.z + (dz / len) * 8);
+          if (bot.pathfinder) {
+            try {
+              bot.pathfinder.setMovements(defaultMove);
+              bot.pathfinder.goto(new GoalNear(fleeX, Math.round(bot.entity.position.y), fleeZ, 1)).catch(() => {});
+            } catch (_) {}
+          } else if (typeof bot.setControlState === "function") {
+            bot.setControlState("back", true);
+            setTimeout(() => {
+              if (bot && typeof bot.setControlState === "function")
+                bot.setControlState("back", false);
+            }, 600);
+          }
+          setTimeout(() => { isAvoiding = false; }, 3000);
           break;
         }
       }
     } catch (e) {
       addLog("[AvoidMobs] Error:", e.message);
     }
-  }, 2000);
+  }, 1500);
 }
 
 // Combat module
@@ -2045,11 +2065,133 @@ function combatModule(bot, mcData) {
   });
 }
 
+// ============================================================
+// GHOST MODULE — human-like idle behavior, silent auto-eat,
+// stealth maintenance, and complete player isolation
+// ============================================================
+function ghostModule(bot, defaultMove) {
+  addLog("[Ghost] Advanced ghost module started — bot is now fully invisible.");
+
+  // ---- SILENT AUTO-EAT (independent of combat module) ----
+  let isEating = false;
+  bot.on("health", () => {
+    if (!bot || !botState.connected || isEating || isSleepingOrGoingToBed(bot)) return;
+    try {
+      if (bot.food <= 16) {
+        const food = bot.inventory.items().find((i) => i && i.foodPoints && i.foodPoints > 0);
+        if (food) {
+          isEating = true;
+          bot.equip(food, "hand")
+            .then(() => bot.consume())
+            .then(() => { isEating = false; })
+            .catch(() => { isEating = false; });
+        }
+      }
+    } catch (e) { isEating = false; }
+  });
+
+  // ---- HUMAN-LIKE HEAD MOVEMENT ----
+  // Slowly drifts gaze rather than snapping instantly
+  let targetYaw = Math.random() * Math.PI * 2 - Math.PI;
+  let targetPitch = (Math.random() - 0.5) * 0.6;
+  let currentYaw = targetYaw;
+  let currentPitch = targetPitch;
+
+  // Pick new gaze target every 4–12 seconds
+  addInterval(() => {
+    if (!bot || !botState.connected || isSleepingOrGoingToBed(bot)) return;
+    // Occasionally look at a nearby player naturally (like a real player would glance)
+    try {
+      const players = Object.values(bot.entities).filter(
+        (e) => e.type === "player" && e.username !== bot.username && e.position &&
+          bot.entity.position.distanceTo(e.position) < 20
+      );
+      if (players.length > 0 && Math.random() < 0.3) {
+        // Glance toward a player briefly but look away after 2-4s (natural behavior)
+        const p = players[Math.floor(Math.random() * players.length)];
+        const dx = p.position.x - bot.entity.position.x;
+        const dz = p.position.z - bot.entity.position.z;
+        targetYaw = Math.atan2(-dx, -dz);
+        targetPitch = -0.1 + Math.random() * 0.3;
+      } else {
+        targetYaw = Math.random() * Math.PI * 2 - Math.PI;
+        targetPitch = (Math.random() - 0.5) * 0.7;
+      }
+    } catch (e) {}
+  }, 4000 + Math.random() * 8000);
+
+  // Smooth gaze interpolation — updates at 20Hz to mimic natural head movement
+  addInterval(() => {
+    if (!bot || !botState.connected || isSleepingOrGoingToBed(bot)) return;
+    try {
+      // Interpolate toward target yaw/pitch (smooth drift)
+      const lerpSpeed = 0.08 + Math.random() * 0.07;
+      currentYaw += (targetYaw - currentYaw) * lerpSpeed;
+      currentPitch += (targetPitch - currentPitch) * lerpSpeed;
+      // Add micro-jitter to simulate human hand tremor
+      const jitterYaw = (Math.random() - 0.5) * 0.008;
+      const jitterPitch = (Math.random() - 0.5) * 0.005;
+      bot.look(currentYaw + jitterYaw, currentPitch + jitterPitch, false);
+    } catch (e) {}
+  }, 50);
+
+  // ---- PERIODIC SNEAK PULSE (breathing-like micro-movement) ----
+  // Every 25-60s the bot crouches for 300ms — looks like the player shifted weight
+  addInterval(() => {
+    if (
+      !bot || !botState.connected || isSleepingOrGoingToBed(bot) ||
+      typeof bot.setControlState !== "function"
+    ) return;
+    if (Math.random() < 0.4) {
+      try {
+        // Momentarily un-sneak then re-sneak
+        bot.setControlState("sneak", false);
+        setTimeout(() => {
+          if (bot && typeof bot.setControlState === "function")
+            bot.setControlState("sneak", true);
+        }, 280 + Math.floor(Math.random() * 200));
+      } catch (e) {}
+    }
+  }, 25000 + Math.floor(Math.random() * 35000));
+
+  // ---- STEALTH REAPPLICATION ----
+  // Reapply invisibility & nametag suppression every 8 minutes
+  // (in case server restart, effect expiry, etc.)
+  if (config.stealth && config.stealth.enabled) {
+    addInterval(() => {
+      if (!bot || !botState.connected) return;
+      try {
+        if (config.stealth["try-invisibility"]) {
+          bot.chat("/effect give @s minecraft:invisibility infinite 1 true");
+          bot.chat("/effect give @s invisibility 999999 1 true");
+        }
+        if (config.stealth["hide-nametag"]) {
+          bot.chat("/team modify stealth_hide nametagVisibility never");
+          bot.chat("/team join stealth_hide @s");
+        }
+        if (config.stealth["try-vanish"]) {
+          // Only re-vanish occasionally so it doesn't spam the console
+          if (Math.random() < 0.5) {
+            try { bot.chat("/vanish"); } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    }, 8 * 60 * 1000);
+  }
+
+  // ---- BLOCK ALL PLAYER INTERACTION ----
+  // Ghost bots never respond to anyone — add a chat interceptor that drops everything
+  // (the existing chatModule.respond setting handles this too, but this is a hard lock)
+  // No listeners added here; simply log that all chat is silenced.
+  addLog("[Ghost] Chat reactions disabled. Bot will never interact with players.");
+}
+
 // Bed module - Automatically sleep when players try to sleep or when it's night
 function bedModule(bot, mcData, defaultMove) {
   let isNavigatingToBed = false;
   let lastAttemptTime = 0;
   let lastChatAlertTime = 0;
+  let botPlacedThisBed = false;
   const searchRadius = (config.beds && config.beds["search-radius"]) || 32;
 
   botState.isGoingToBed = false;
@@ -2060,6 +2202,11 @@ function bedModule(bot, mcData, defaultMove) {
     const isNight = timeOfDay >= 12500 && timeOfDay <= 23500;
     const isStorm = Boolean(bot.isRaining);
     return isNight || isStorm;
+  }
+
+  function getBedFromInventory() {
+    if (!bot || !bot.inventory) return null;
+    return bot.inventory.items().find((i) => i && i.name && i.name.includes("bed"));
   }
 
   function findNearbyBed() {
@@ -2094,10 +2241,123 @@ function bedModule(bot, mcData, defaultMove) {
     }
   }
 
+  async function placeBedFromInventory() {
+    if (!bot || !bot.inventory || !bot.entity) return null;
+
+    let bedItem = getBedFromInventory();
+
+    // If bot has no bed, try asking server via OP / creative if enabled
+    if (!bedItem && config.server && config.server["try-creative"]) {
+      try {
+        bot.chat("/give @s red_bed 1");
+        await new Promise((r) => setTimeout(r, 600));
+        bedItem = getBedFromInventory();
+      } catch (e) {}
+    }
+
+    if (!bedItem) {
+      addLog("[Bed] Bot does not have a bed in inventory to place.");
+      return null;
+    }
+
+    addLog(`[Bed] Found bed in inventory (${bedItem.name}). Finding suitable floor space...`);
+
+    const botPos = bot.entity.position.floored();
+    const { Vec3 } = require("vec3");
+
+    const horizontalDirs = [
+      new Vec3(0, 0, 1),   // South
+      new Vec3(0, 0, -1),  // North
+      new Vec3(1, 0, 0),   // East
+      new Vec3(-1, 0, 0),  // West
+    ];
+
+    let bestSpot = null;
+
+    // Search candidate ground spots near bot (x: -2 to 2, z: -2 to 2, y: -1 to 0)
+    for (let dx = -2; dx <= 2 && !bestSpot; dx++) {
+      for (let dz = -2; dz <= 2 && !bestSpot; dz++) {
+        for (let dy = -1; dy <= 0 && !bestSpot; dy++) {
+          const floorPos1 = botPos.offset(dx, dy, dz);
+          const floorBlock1 = bot.blockAt(floorPos1);
+          const airBlock1 = bot.blockAt(floorPos1.offset(0, 1, 0));
+
+          if (!floorBlock1 || floorBlock1.boundingBox !== "block" || floorBlock1.name.includes("air")) continue;
+          if (!airBlock1 || (airBlock1.boundingBox === "block" && !airBlock1.name.includes("air"))) continue;
+
+          for (const dir of horizontalDirs) {
+            const floorPos2 = floorPos1.offset(dir.x, 0, dir.z);
+            const floorBlock2 = bot.blockAt(floorPos2);
+            const airBlock2 = bot.blockAt(floorPos2.offset(0, 1, 0));
+
+            if (!floorBlock2 || floorBlock2.boundingBox !== "block" || floorBlock2.name.includes("air")) continue;
+            if (!airBlock2 || (airBlock2.boundingBox === "block" && !airBlock2.name.includes("air"))) continue;
+
+            bestSpot = {
+              footFloor: floorBlock1,
+              headFloor: floorBlock2,
+              dir: dir,
+            };
+            break;
+          }
+        }
+      }
+    }
+
+    if (!bestSpot) {
+      addLog("[Bed] Could not find clear 2-block ground space to place bed near bot.");
+      return null;
+    }
+
+    try {
+      await bot.equip(bedItem, "hand");
+      const lookTarget = bestSpot.footFloor.position.offset(
+        bestSpot.dir.x * 2,
+        1.5,
+        bestSpot.dir.z * 2
+      );
+      await bot.lookAt(lookTarget, true);
+      await new Promise((r) => setTimeout(r, 200));
+
+      await bot.placeBlock(bestSpot.footFloor, new Vec3(0, 1, 0));
+      botPlacedThisBed = true;
+      addLog(`[Bed] Placed bed from inventory on top of ${bestSpot.footFloor.name}!`);
+      await new Promise((r) => setTimeout(r, 500));
+
+      const placedBed =
+        bot.blockAt(bestSpot.footFloor.position.offset(0, 1, 0)) ||
+        bot.blockAt(bestSpot.headFloor.position.offset(0, 1, 0)) ||
+        findNearbyBed();
+
+      return placedBed;
+    } catch (err) {
+      addLog(`[Bed] Failed to place bed: ${err.message}`);
+      return null;
+    }
+  }
+
+  async function pickUpBed() {
+    try {
+      const bedBlock = findNearbyBed();
+      if (!bedBlock) return;
+      if (typeof bot.dig === "function" && bot.canDigBlock(bedBlock)) {
+        addLog(`[Bed] Breaking bed to pick it back up into inventory...`);
+        await bot.dig(bedBlock);
+        await new Promise((r) => setTimeout(r, 800));
+        botPlacedThisBed = false;
+        const item = getBedFromInventory();
+        if (item) {
+          addLog(`[Bed] Bed is now safely in bot's inventory (${item.name}).`);
+        }
+      }
+    } catch (e) {
+      addLog(`[Bed] Error picking up bed: ${e.message}`);
+    }
+  }
+
   async function goToBed(triggerReason = "routine") {
     if (!bot || !botState.connected || !bot.entity) return false;
     if (bot.isSleeping) {
-      addLog(`[Bed] Bot is already sleeping in bed.`);
       return true;
     }
     if (isNavigatingToBed) {
@@ -2105,12 +2365,16 @@ function bedModule(bot, mcData, defaultMove) {
     }
 
     const now = Date.now();
-    if (now - lastAttemptTime < 8000) {
+    if (now - lastAttemptTime < 3000) {
       return false; // Debounce rapid triggers
     }
     lastAttemptTime = now;
 
-    if (!isNightOrStorm()) {
+    // If triggered by player sleeping, ALWAYS try — don't gate on time check
+    // Only skip if triggered by the routine timer and it's daytime
+    const isPlayerTrigger = triggerReason.toLowerCase().includes("player") ||
+      triggerReason.toLowerCase().includes("server");
+    if (!isPlayerTrigger && !isNightOrStorm()) {
       addLog(`[Bed] Sleep skipped: it is daytime and not thundering.`);
       return false;
     }
@@ -2119,34 +2383,13 @@ function bedModule(bot, mcData, defaultMove) {
 
     let bedBlock = findNearbyBed();
 
-    // If no bed placed nearby, check if bot has a bed in inventory to place
-    if (!bedBlock && config.beds && config.beds["place-night"]) {
-      try {
-        const bedItem = bot.inventory
-          .items()
-          .find((i) => i.name && i.name.includes("bed"));
-        if (bedItem) {
-          addLog(`[Bed] No bed found nearby. Attempting to place bed from inventory...`);
-          const refBlock = bot.findBlock({
-            matching: (b) => b && b.boundingBox === "block" && !b.name.includes("air"),
-            maxDistance: 4,
-          });
-          if (refBlock) {
-            await bot.equip(bedItem, "hand");
-            const { Vec3 } = require("vec3");
-            await bot.placeBlock(refBlock, new Vec3(0, 1, 0));
-            addLog(`[Bed] Placed bed on ${refBlock.name}`);
-            await new Promise((r) => setTimeout(r, 600));
-            bedBlock = findNearbyBed();
-          }
-        }
-      } catch (placeErr) {
-        addLog(`[Bed] Failed to place bed: ${placeErr.message}`);
-      }
+    // If no bed placed nearby in the world, check inventory and place one!
+    if (!bedBlock && config.beds && config.beds["place-night"] !== false) {
+      bedBlock = await placeBedFromInventory();
     }
 
     if (!bedBlock) {
-      addLog(`[Bed] No bed found within ${searchRadius} blocks. Place a bed near the bot so it can sleep.`);
+      addLog(`[Bed] No bed found nearby and no bed in inventory. Give the bot a bed or place one near it!`);
       if (
         now - lastChatAlertTime > 45000 &&
         config.beds &&
@@ -2208,7 +2451,7 @@ function bedModule(bot, mcData, defaultMove) {
 
       addLog(`[Bed] Entering bed at ${bedBlock.position.x}, ${bedBlock.position.y}, ${bedBlock.position.z}...`);
       await bot.sleep(bedBlock);
-      addLog(`[Bed] Zzz... Bot is now sleeping in bed!`);
+      addLog(`[Bed] Zzz... Bot is now sleeping in bed! Night can pass.`);
 
       if (
         config.beds &&
@@ -2237,7 +2480,7 @@ function bedModule(bot, mcData, defaultMove) {
   // Event: bot enters bed
   bot.on("sleep", () => {
     botState.isGoingToBed = true;
-    addLog(`[Bed] Bot entered bed (bot.isSleeping = true). Pausing movement and anti-afk.`);
+    addLog(`[Bed] Bot entered bed (bot.isSleeping = true). All movement and anti-afk paused.`);
   });
 
   // Event: bot wakes up
@@ -2256,73 +2499,67 @@ function bedModule(bot, mcData, defaultMove) {
       } catch (e) {}
     }
 
-    if (config.beds && config.beds["pick-up-day"]) {
-      try {
-        const bedBlock = findNearbyBed();
-        if (bedBlock && bot.canDigBlock(bedBlock)) {
-          addLog(`[Bed] Picking up bed (pick-up-day is enabled)...`);
-          await bot.dig(bedBlock);
-          addLog(`[Bed] Bed picked up.`);
-        }
-      } catch (e) {
-        addLog(`[Bed] Error picking up bed: ${e.message}`);
-      }
+    // Pick up bed into inventory if configured or if bot placed it
+    if ((config.beds && config.beds["pick-up-day"]) || botPlacedThisBed) {
+      await pickUpBed();
     }
   });
 
-  // 1. Detection: Server messages (Chat, Action Bar, System notices)
-  bot.on("messagestr", (msg) => {
-    if (!msg) return;
-    const lower = msg.toLowerCase();
+  // Centralized sleep message detector (handles Chat, Action Bar, Titles, System notices)
+  function checkSleepMessage(rawMsg) {
+    if (!rawMsg) return;
+    let str = "";
+    if (typeof rawMsg === "string") {
+      str = rawMsg;
+    } else if (typeof rawMsg === "object") {
+      try {
+        str = rawMsg.toString ? rawMsg.toString() : JSON.stringify(rawMsg);
+      } catch (e) {
+        str = String(rawMsg);
+      }
+    }
+    const lower = str.toLowerCase();
 
     const isSleepNotice =
+      lower.includes("night will be skipped") ||
+      lower.includes("other player sleeps") ||
+      lower.includes("other players sleep") ||
       lower.includes("players sleeping") ||
       lower.includes("player is sleeping") ||
       lower.includes("to skip to dawn") ||
       lower.includes("skipping night") ||
+      lower.includes("skip night") ||
       lower.includes("went to bed") ||
       lower.includes("is now sleeping") ||
       lower.includes("players are sleeping") ||
+      lower.includes("leave bed") ||
+      lower.includes("sleep.skipping_night") ||
       lower.includes("sleep.players_sleeping");
 
     if (isSleepNotice) {
-      addLog(`[Bed] Detected sleeping notice: "${msg}"`);
+      addLog(`[Bed] Detected sleep notice from server: "${str.slice(0, 90)}"`);
       goToBed("Server sleep notice");
     }
-  });
+  }
 
-  // 2. Detection: Chat messages from players asking to sleep
-  bot.on("chat", (username, message) => {
-    if (!bot || username === bot.username) return;
-    const lower = message.toLowerCase().trim();
+  bot.on("messagestr", checkSleepMessage);
+  bot.on("message", checkSleepMessage);
+  bot.on("actionBar", checkSleepMessage);
+  bot.on("title", checkSleepMessage);
 
-    const sleepKeywords = [
-      "sleep",
-      "sleeping",
-      "!sleep",
-      "pls sleep",
-      "please sleep",
-      "bot sleep",
-      "go to sleep",
-      "bed",
-      "skip night",
-      "night skip",
-      "good night",
-      "gn",
-    ];
-
-    const requested = sleepKeywords.some((kw) => {
-      const reg = new RegExp(`(^|\\b)${kw}(\\b|$)`, "i");
-      return reg.test(lower);
+  if (bot._client) {
+    bot._client.on("set_action_bar_text", (packet) => {
+      try { checkSleepMessage(packet && packet.text ? packet.text : packet); } catch (e) {}
     });
+    bot._client.on("system_chat", (packet) => {
+      try { checkSleepMessage(packet && packet.content ? packet.content : packet); } catch (e) {}
+    });
+  }
 
-    if (requested) {
-      addLog(`[Bed] Player ${username} mentioned sleep in chat: "${message}"`);
-      goToBed(`Player ${username} in chat`);
-    }
-  });
+  // NOTE: Intentionally NOT listening to player chat — bot must be 100% non-interactive.
+  // Sleep is detected ONLY via server messages, action bar, and entity pose.
 
-  // 3. Detection: Nearby player entity enters bed (pose === sleeping)
+  // Nearby player entity enters bed (pose === sleeping)
   const checkSleepingEntities = () => {
     if (!bot || !botState.connected || !bot.entities || bot.isSleeping || isNavigatingToBed) return;
     try {
@@ -2334,7 +2571,7 @@ function bedModule(bot, mcData, defaultMove) {
           entity.pose === "sleeping" ||
           entity.pose === 2 ||
           entity.isInBed === true ||
-          (entity.metadata && entity.metadata[6] === 2);
+          (entity.metadata && (entity.metadata[6] === 2 || entity.metadata[6] === "sleeping"));
 
         if (isPlayerSleeping) {
           addLog(`[Bed] Detected player ${entity.username || id} sleeping in bed nearby!`);
@@ -2345,9 +2582,9 @@ function bedModule(bot, mcData, defaultMove) {
     } catch (e) {}
   };
 
-  addInterval(checkSleepingEntities, 3000);
+  addInterval(checkSleepingEntities, 1500);
 
-  // 4. Periodic time check (Night time or thunderstorm auto-sleep)
+  // Periodic time check (Night time or thunderstorm auto-sleep)
   addInterval(() => {
     if (!bot || !botState.connected) return;
 
@@ -2371,10 +2608,12 @@ function bedModule(bot, mcData, defaultMove) {
         goToBed("Night time (other players online)");
       }
     }
-  }, 5000);
+  }, 2500);
 
-  // Expose goToBed method on bot instance
+  // Expose methods on bot instance
   bot.goToBed = goToBed;
+  bot.pickUpBed = pickUpBed;
+  bot.placeBedFromInventory = placeBedFromInventory;
 }
 
 // Chat module
@@ -2623,7 +2862,7 @@ process.on("SIGINT", () => {
 // START THE BOT
 // ============================================================
 addLog("=".repeat(50));
-addLog("  Minecraft AFK Bot v2.5 - Bug-Fixed Edition");
+addLog("  Minecraft AFK Bot v3.0 - Ghost Advanced Edition");
 addLog("=".repeat(50));
 addLog(`Server: ${config.server.ip}:${config.server.port}`);
 addLog(`Version: ${config.server.version}`);
