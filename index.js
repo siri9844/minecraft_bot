@@ -34,619 +34,1835 @@ function isSleepingOrGoingToBed(botInstance) {
   );
 }
 
-// Advanced Bot Tracking Dashboard
+// Advanced Enterprise Bot Tracking Dashboard
 app.get('/', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${config.name} — Bot Tracker</title>
-  <meta name="description" content="Live Minecraft AFK bot tracking dashboard">
+  <title>\${config.name} — Enterprise Command Center</title>
+  <meta name="description" content="Enterprise-grade live telemetry and command dashboard for Minecraft AFK Sentinel">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     :root {
-      --bg:        #080c12;
-      --surface:   #0e1520;
-      --surface2:  #151d2e;
-      --border:    #1e2d45;
-      --border2:   #243250;
-      --text:      #e2eaf7;
-      --muted:     #5a7090;
-      --green:     #22c55e;
-      --green-dim: #14532d;
-      --red:       #ef4444;
-      --red-dim:   #450a0a;
-      --yellow:    #eab308;
-      --blue:      #3b82f6;
-      --purple:    #a855f7;
-      --cyan:      #06b6d4;
-      --orange:    #f97316;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      --bg-base: #06080e;
+      --bg-subtle: #0a0e17;
+      --bg-card: rgba(14, 20, 32, 0.78);
+      --bg-card-hover: rgba(20, 29, 47, 0.88);
+      --bg-elevated: #131a29;
+      --bg-input: #0b101b;
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-medium: rgba(255, 255, 255, 0.12);
+      --border-accent: rgba(99, 102, 241, 0.35);
+
+      --primary: #6366f1;
+      --primary-light: #818cf8;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.22);
+      --emerald-border: rgba(16, 185, 129, 0.35);
+
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.22);
+
+      --rose: #f43f5e;
+      --rose-glow: rgba(244, 63, 94, 0.22);
+
+      --cyan: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.22);
+
+      --purple: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.22);
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --text-highlight: #ffffff;
+
+      --sidebar-w: 260px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
       padding: 0;
     }
 
-    /* TOP NAV */
-    nav {
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+      font-size: 14px;
+      line-height: 1.5;
+      background-image: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 80%, rgba(6, 182, 212, 0.08), transparent);
+      background-attachment: fixed;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+    /* Layout structure */
+    .app-sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-subtle);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      min-height: 100vh;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 24px 16px;
+      gap: 28px;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 8px;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), #4338ca);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 18px;
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+
+    .brand-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      color: var(--text-highlight);
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--primary-light);
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .sidebar-section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-dim);
+      font-weight: 700;
+      padding: 0 10px;
+      margin-bottom: 8px;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-item a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .nav-item a:hover {
+      color: var(--text-highlight);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .nav-item.active a {
+      color: #fff;
+      background: linear-gradient(90deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.05));
+      border-left: 3px solid var(--primary);
+      font-weight: 600;
+    }
+
+    .nav-item a i {
+      font-size: 14px;
+      width: 18px;
+      text-align: center;
+      color: var(--text-dim);
+      transition: color 0.2s;
+    }
+
+    .nav-item.active a i, .nav-item a:hover i {
+      color: var(--primary-light);
+    }
+
+    .sidebar-foot {
+      margin-top: auto;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .server-label-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 28px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      backdrop-filter: blur(12px);
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
-    .nav-brand {
+
+    .server-ip-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-main);
+      word-break: break-all;
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 800;
-      font-size: 17px;
-      color: var(--text);
-      letter-spacing: -0.3px;
+      gap: 6px;
     }
-    .nav-brand .cube {
-      width: 28px; height: 28px;
-      background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
-      border-radius: 7px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px;
-    }
-    .nav-right { display: flex; align-items: center; gap: 10px; }
-    .live-badge {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 11px; font-weight: 600;
-      color: var(--green);
-      background: rgba(34,197,94,0.1);
-      border: 1px solid rgba(34,197,94,0.25);
-      border-radius: 20px;
-      padding: 4px 10px;
-    }
-    .live-dot {
-      width: 6px; height: 6px;
-      background: var(--green);
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
 
-    .nav-link {
+    /* Main Area */
+    .app-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* Enterprise Header */
+    .top-header {
+      height: 64px;
+      background: rgba(10, 14, 23, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .breadcrumb-trail {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 13px;
-      font-weight: 500;
-      color: var(--muted);
-      text-decoration: none;
-      padding: 6px 12px;
-      border-radius: 8px;
-      transition: background .15s, color .15s;
+      color: var(--text-muted);
     }
-    .nav-link:hover { background: var(--surface2); color: var(--text); }
 
-    /* LAYOUT */
-    .page { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+    .breadcrumb-trail .crumb-active {
+      color: var(--text-highlight);
+      font-weight: 600;
+    }
 
-    /* STATUS HERO */
-    .status-hero {
-      border-radius: 16px;
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .clock-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-medium);
+      transform: translateY(-1px);
+    }
+
+    .header-btn.btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    .header-btn.btn-primary:hover {
+      background: var(--primary-light);
+    }
+
+    .header-btn.btn-danger {
+      border-color: rgba(244, 63, 94, 0.3);
+      color: #fca5a5;
+    }
+
+    .header-btn.btn-danger:hover {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: var(--rose);
+      color: #fff;
+    }
+
+    /* Content body */
+    .dashboard-content {
+      padding: 28px 32px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Enterprise Hero Banner */
+    .hero-banner {
+      background: linear-gradient(135deg, rgba(14, 20, 35, 0.95), rgba(19, 28, 48, 0.9));
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
       padding: 24px 28px;
-      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(16px);
+      transition: all 0.3s ease;
+    }
+
+    .hero-banner::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--cyan), var(--emerald));
+    }
+
+    .hero-banner.is-online::before {
+      background: linear-gradient(90deg, var(--emerald), var(--cyan));
+    }
+
+    .hero-banner.is-sleeping::before {
+      background: linear-gradient(90deg, var(--primary), var(--purple));
+    }
+
+    .hero-banner.is-offline::before {
+      background: linear-gradient(90deg, var(--rose), var(--amber));
+    }
+
+    .hero-left {
       display: flex;
       align-items: center;
       gap: 20px;
-      transition: background .4s, border-color .4s;
-      border: 2px solid var(--border);
-      background: var(--surface);
     }
-    .status-hero.online  { background: linear-gradient(135deg, #0a1f12 0%, var(--surface) 60%); border-color: #166534; }
-    .status-hero.offline { background: linear-gradient(135deg, #1c0a0a 0%, var(--surface) 60%); border-color: #7f1d1d; }
-    .status-hero.sleeping { background: linear-gradient(135deg, #0f1340 0%, var(--surface) 60%); border-color: #3730a3; }
 
-    .status-avatar {
-      width: 56px; height: 56px;
-      border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 26px; flex-shrink: 0;
-      transition: background .4s;
+    .hero-radar-badge {
+      width: 58px;
+      height: 58px;
+      border-radius: var(--radius-md);
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--emerald-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: var(--emerald);
+      position: relative;
+      flex-shrink: 0;
+      transition: all 0.3s;
     }
-    .status-avatar.online   { background: rgba(34,197,94,0.15); }
-    .status-avatar.offline  { background: rgba(239,68,68,0.15); }
-    .status-avatar.sleeping { background: rgba(99,102,241,0.18); }
 
-    .status-info { flex: 1; min-width: 0; }
-    .status-title {
-      font-size: 20px; font-weight: 800;
-      letter-spacing: -0.4px;
-      transition: color .4s;
+    .hero-radar-badge.sleeping {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: var(--primary-light);
     }
-    .status-title.online   { color: var(--green); }
-    .status-title.offline  { color: var(--red); }
-    .status-title.sleeping { color: #818cf8; }
-    .status-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-    .status-meta {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    .hero-radar-badge.offline {
+      background: rgba(244, 63, 94, 0.1);
+      border-color: rgba(244, 63, 94, 0.35);
+      color: var(--rose);
     }
-    .tag {
-      font-size: 11px; font-weight: 600;
-      border-radius: 6px;
-      padding: 3px 9px;
-    }
-    .tag-green  { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
-    .tag-purple { background: rgba(168,85,247,0.12); color: var(--purple); border: 1px solid rgba(168,85,247,0.2); }
-    .tag-blue   { background: rgba(59,130,246,0.12); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
-    .tag-orange { background: rgba(249,115,22,0.12); color: var(--orange); border: 1px solid rgba(249,115,22,0.2); }
-    .tag-red    { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
-    .tag-muted  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
 
-    /* GRID */
-    .grid { display: grid; gap: 14px; margin-bottom: 14px; }
-    .grid-3 { grid-template-columns: repeat(3, 1fr); }
-    .grid-2 { grid-template-columns: repeat(2, 1fr); }
-    .grid-4 { grid-template-columns: repeat(4, 1fr); }
-    @media (max-width: 800px) { .grid-3,.grid-4 { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 500px) { .grid-3,.grid-2,.grid-4 { grid-template-columns: 1fr; } }
-
-    /* CARDS */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px;
-      transition: border-color .2s;
+    .hero-meta-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
     }
-    .card:hover { border-color: var(--border2); }
-    .card-label {
-      font-size: 11px; font-weight: 700;
-      color: var(--muted);
+
+    .hero-title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: #fff;
+    }
+
+    .status-pill {
+      font-size: 11px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-bottom: 10px;
-      display: flex; align-items: center; gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
-    .card-label-icon { font-size: 13px; }
-    .card-value {
+
+    .status-pill.online {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status-pill.sleeping {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .status-pill.offline {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      animation: statusPulse 2s infinite ease-in-out;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .hero-subtext {
+      color: var(--text-muted);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hero-tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip-tag.ghost {
+      background: rgba(168, 85, 247, 0.12);
+      border-color: rgba(168, 85, 247, 0.3);
+      color: #d8b4fe;
+    }
+
+    .chip-tag.bed {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(99, 102, 241, 0.3);
+      color: #c7d2fe;
+    }
+
+    .chip-tag.world {
+      background: rgba(6, 182, 212, 0.12);
+      border-color: rgba(6, 182, 212, 0.3);
+      color: #67e8f9;
+    }
+
+    .hero-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .server-target-pill {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 22px; font-weight: 600;
-      color: var(--text);
-      letter-spacing: -0.5px;
-      line-height: 1.2;
+      font-size: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .card-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-    /* BAR GAUGES */
-    .gauge-bar {
-      height: 8px;
-      background: var(--surface2);
-      border-radius: 100px;
-      overflow: hidden;
-      margin-top: 12px;
+    .server-target-pill:hover {
+      border-color: var(--primary-light);
+      background: #1c273c;
     }
-    .gauge-fill {
-      height: 100%;
-      border-radius: 100px;
-      transition: width .6s ease;
-    }
-    .gauge-fill.health { background: linear-gradient(90deg, #ef4444, #22c55e); }
-    .gauge-fill.food   { background: linear-gradient(90deg, #f97316, #eab308); }
-    .gauge-fill.memory { background: linear-gradient(90deg, #3b82f6, #a855f7); }
 
-    /* COORDS */
-    .coord-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 8px; }
-    .coord-box {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      text-align: center;
+    .server-target-pill i {
+      color: var(--cyan);
     }
-    .coord-axis { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
-    .coord-val {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 17px; font-weight: 600;
-      color: var(--text);
-      margin-top: 4px;
-    }
-    .coord-val.x { color: #f87171; }
-    .coord-val.y { color: #4ade80; }
-    .coord-val.z { color: #60a5fa; }
 
-    /* TIME OF DAY */
-    .time-bar-wrap { margin-top: 14px; }
-    .time-bar-track {
-      height: 10px;
-      border-radius: 100px;
+    .hero-synced {
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* KPI Metric Cards Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
       position: relative;
       overflow: hidden;
-    }
-    .time-gradient {
-      position: absolute; inset: 0;
-      background: linear-gradient(90deg,
-        #1a1a3e 0%,       /* midnight */
-        #2d3a7c 12.5%,    /* dawn */
-        #f97316 20%,      /* sunrise */
-        #fbbf24 25%,      /* morning */
-        #7dd3fc 35%,      /* day */
-        #60a5fa 50%,      /* noon */
-        #7dd3fc 65%,      /* afternoon */
-        #fb923c 75%,      /* sunset */
-        #7c3aed 80%,      /* dusk */
-        #1a1a3e 100%      /* night */
-      );
-    }
-    .time-cursor {
-      position: absolute;
-      top: -3px; bottom: -3px;
-      width: 4px;
-      background: white;
-      border-radius: 2px;
-      box-shadow: 0 0 6px rgba(255,255,255,0.8);
-      transition: left .5s ease;
-    }
-    .time-labels {
-      display: flex; justify-content: space-between;
-      font-size: 10px; color: var(--muted);
-      margin-top: 5px;
+      backdrop-filter: blur(12px);
+      transition: all 0.25s ease;
     }
 
-    /* PLAYER LIST */
-    .player-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
-    .player-item {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 8px 12px;
-      font-size: 13px;
-      font-weight: 500;
+    .kpi-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
     }
-    .player-dot {
-      width: 8px; height: 8px;
-      background: var(--green);
+
+    .kpi-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kpi-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .kpi-icon-bubble {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .kpi-icon-bubble.emerald { color: var(--emerald); background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25); }
+    .kpi-icon-bubble.amber   { color: var(--amber);   background: rgba(245, 158, 11, 0.1);  border-color: rgba(245, 158, 11, 0.25); }
+    .kpi-icon-bubble.cyan    { color: var(--cyan);    background: rgba(6, 182, 212, 0.1);   border-color: rgba(6, 182, 212, 0.25); }
+    .kpi-icon-bubble.primary { color: var(--primary-light); background: rgba(99, 102, 241, 0.1); border-color: rgba(99, 102, 241, 0.25); }
+
+    .kpi-main-val {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .kpi-big-num {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .kpi-denom {
+      font-size: 13px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .kpi-sub-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Segmented meter */
+    .meter-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .meter-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .fill-emerald { background: linear-gradient(90deg, #059669, #10b981); box-shadow: 0 0 10px var(--emerald-glow); }
+    .fill-amber   { background: linear-gradient(90deg, #d97706, #f59e0b); box-shadow: 0 0 10px var(--amber-glow); }
+    .fill-cyan    { background: linear-gradient(90deg, #0284c7, #06b6d4); box-shadow: 0 0 10px var(--cyan-glow); }
+    .fill-primary { background: linear-gradient(90deg, #4f46e5, #6366f1); box-shadow: 0 0 10px var(--primary-glow); }
+
+    /* Coordinate pills */
+    .coords-cluster {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .coord-chip {
+      flex: 1;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .coord-axis {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .coord-axis.x { color: #f43f5e; }
+    .coord-axis.y { color: #10b981; }
+    .coord-axis.z { color: #38bdf8; }
+
+    .coord-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    /* Core grid */
+    .core-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 20px;
+    }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      backdrop-filter: blur(12px);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 14px;
+    }
+
+    .panel-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-title-icon {
+      font-size: 16px;
+      color: var(--primary-light);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-highlight);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .panel-badge {
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 2px 10px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Time slider */
+    .timeline-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .timeline-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .timeline-track {
+      height: 14px;
+      background: linear-gradient(90deg, 
+        #0f172a 0%, 
+        #ea580c 25%, 
+        #38bdf8 45%, 
+        #f59e0b 70%, 
+        #312e81 85%, 
+        #090d16 100%
+      );
+      border-radius: 999px;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .timeline-cursor {
+      position: absolute;
+      top: -4px;
+      width: 22px;
+      height: 22px;
+      background: #ffffff;
+      border: 2px solid var(--primary);
       border-radius: 50%;
+      transform: translateX(-50%);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--bg-base);
+      transition: left 0.4s ease;
+    }
+
+    /* Stealth matrix */
+    .subsystem-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .subsystem-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 0.2s;
+    }
+
+    .subsystem-card:hover {
+      border-color: var(--border-medium);
+    }
+
+    .subsystem-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      color: var(--primary-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
       flex-shrink: 0;
     }
-    .player-empty { font-size: 13px; color: var(--muted); margin-top: 8px; text-align: center; padding: 16px; }
 
-    /* CONTROLS */
-    .controls-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-    .btn {
-      display: flex; align-items: center; gap: 7px;
-      padding: 10px 18px;
-      border-radius: 10px;
-      font-size: 13px; font-weight: 600;
-      cursor: pointer; border: none;
-      font-family: inherit;
-      transition: filter .15s, opacity .15s;
+    .subsystem-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
     }
-    .btn:hover { filter: brightness(1.1); }
-    .btn:active { opacity: .8; }
-    .btn-start  { background: rgba(34,197,94,0.15);  color: var(--green);  border: 1px solid rgba(34,197,94,0.3); }
-    .btn-stop   { background: rgba(239,68,68,0.15);  color: var(--red);    border: 1px solid rgba(239,68,68,0.3); }
-    .btn-sleep  { background: rgba(99,102,241,0.15); color: #818cf8;       border: 1px solid rgba(99,102,241,0.3); }
-    .btn-logs   { background: var(--surface2);       color: var(--muted);  border: 1px solid var(--border); }
 
-    /* FOOTER */
-    .page-footer {
-      text-align: center;
+    .subsystem-name {
       font-size: 12px;
-      color: var(--muted);
-      margin-top: 28px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* LAST UPDATE */
-    #last-update { font-size: 11px; color: var(--muted); }
+    .subsystem-state {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--emerald);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Command Console Panel */
+    .terminal-container {
+      background: #05080f;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .terminal-screen {
+      height: 140px;
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.5);
+    }
+
+    .term-line {
+      display: flex;
+      gap: 8px;
+      word-break: break-all;
+    }
+
+    .term-prompt {
+      color: var(--emerald);
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .term-resp {
+      color: #94a3b8;
+    }
+
+    .terminal-input-bar {
+      display: flex;
+      align-items: center;
+      background: var(--bg-input);
+      border-top: 1px solid var(--border-subtle);
+      padding: 8px 12px;
+      gap: 10px;
+    }
+
+    .term-input-prompt {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--emerald);
+      font-weight: 700;
+    }
+
+    .term-input-field {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+
+    .term-send-btn {
+      background: var(--primary);
+      border: none;
+      border-radius: var(--radius-sm);
+      color: #fff;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .term-send-btn:hover {
+      background: var(--primary-light);
+    }
+
+    .quick-chips-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .chip-btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    /* Player radar list */
+    .player-roster {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .player-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      transition: all 0.2s;
+    }
+
+    .player-row:hover {
+      border-color: var(--border-medium);
+      background: rgba(30, 41, 59, 0.5);
+    }
+
+    .player-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .player-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #fff;
+      font-size: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .player-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    .player-status-tag {
+      font-size: 11px;
+      color: var(--emerald);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .empty-state {
+      padding: 24px;
+      text-align: center;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .empty-state i {
+      font-size: 24px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    /* Live Telemetry Stream */
+    .stream-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .stream-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12px;
+      padding: 8px 12px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--primary);
+    }
+
+    .stream-item.sys { border-left-color: var(--cyan); }
+    .stream-item.ghost { border-left-color: var(--purple); }
+    .stream-item.bed { border-left-color: var(--primary); }
+    .stream-item.warn { border-left-color: var(--amber); }
+
+    .stream-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .stream-msg {
+      color: var(--text-muted);
+      word-break: break-word;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .core-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 900px) {
+      .app-sidebar { display: none; }
+      .top-header { padding: 0 16px; }
+      .dashboard-content { padding: 16px; }
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 
-<nav>
-  <div class="nav-brand">
-    <div class="cube">🤖</div>
-    ${config.name}
-  </div>
-  <div class="nav-right">
-    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
-    <a href="/logs" class="nav-link">📋 Logs</a>
-    <a href="/tutorial" class="nav-link">📖 Guide</a>
-  </div>
-</nav>
-
-<div class="page">
-
-  <!-- STATUS HERO -->
-  <div class="status-hero offline" id="hero">
-    <div class="status-avatar offline" id="hero-icon">⚡</div>
-    <div class="status-info">
-      <div class="status-title offline" id="hero-title">Connecting…</div>
-      <div class="status-sub" id="hero-sub">Establishing connection to ${config.server.ip}</div>
-      <div style="margin-top:10px;" class="status-meta" id="hero-tags"></div>
-    </div>
-    <div style="text-align:right;flex-shrink:0;">
-      <div id="last-update">—</div>
-    </div>
-  </div>
-
-  <!-- TOP CONTROLS -->
-  <div class="controls-row">
-    <button class="btn btn-start" id="btn-start" onclick="doStart()">▶ Start Bot</button>
-    <button class="btn btn-stop" id="btn-stop" onclick="doStop()">⏹ Stop Bot</button>
-    <button class="btn btn-sleep" onclick="doSleep()">🛏 Force Sleep</button>
-    <a href="/logs" class="btn btn-logs">📋 View Logs</a>
-  </div>
-
-  <!-- ROW 1: Uptime + Health + Food -->
-  <div class="grid grid-3">
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">⏱</span>Uptime</div>
-      <div class="card-value" id="c-uptime">—</div>
-      <div class="card-sub" id="c-reconnects">Reconnects: —</div>
-    </div>
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">❤️</span>Health</div>
-      <div class="card-value" id="c-health">—<span style="font-size:14px;color:var(--muted)"> / 20</span></div>
-      <div class="gauge-bar"><div class="gauge-fill health" id="bar-health" style="width:0%"></div></div>
-      <div class="card-sub" id="c-health-sub">Waiting for data…</div>
-    </div>
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">🍗</span>Hunger</div>
-      <div class="card-value" id="c-food">—<span style="font-size:14px;color:var(--muted)"> / 20</span></div>
-      <div class="gauge-bar"><div class="gauge-fill food" id="bar-food" style="width:0%"></div></div>
-      <div class="card-sub" id="c-food-sub">Auto-eat active</div>
-    </div>
-  </div>
-
-  <!-- ROW 2: Coordinates -->
-  <div class="card" style="margin-bottom:14px;">
-    <div class="card-label"><span class="card-label-icon">📍</span>Live Coordinates</div>
-    <div class="coord-grid">
-      <div class="coord-box">
-        <div class="coord-axis">X</div>
-        <div class="coord-val x" id="c-x">—</div>
+  <!-- Enterprise Sidebar Navigation -->
+  <aside class="app-sidebar">
+    <div class="brand-wrap">
+      <div class="brand-icon">
+        <i class="fa-solid fa-cube"></i>
       </div>
-      <div class="coord-box">
-        <div class="coord-axis">Y</div>
-        <div class="coord-val y" id="c-y">—</div>
-      </div>
-      <div class="coord-box">
-        <div class="coord-axis">Z</div>
-        <div class="coord-val z" id="c-z">—</div>
+      <div class="brand-meta">
+        <span class="brand-title">\${config.name}</span>
+        <span class="brand-subtitle">SENTINEL OPS</span>
       </div>
     </div>
-    <div class="card-sub" style="margin-top:10px;" id="c-dim">Dimension: —</div>
-  </div>
 
-  <!-- ROW 3: Time of Day + Players + Memory -->
-  <div class="grid grid-3">
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">🌐</span>Time of Day</div>
-      <div class="card-value" id="c-time">—</div>
-      <div class="time-bar-wrap">
-        <div class="time-bar-track">
-          <div class="time-gradient"></div>
-          <div class="time-cursor" id="time-cursor" style="left:0%"></div>
+    <div>
+      <div class="sidebar-section-title">Telemetry & Status</div>
+      <ul class="nav-list">
+        <li class="nav-item active"><a href="/"><i class="fa-solid fa-gauge-high"></i> Overview</a></li>
+        <li class="nav-item"><a href="/tutorial"><i class="fa-solid fa-book-bookmark"></i> Setup Guide</a></li>
+        <li class="nav-item"><a href="/logs"><i class="fa-solid fa-list-check"></i> System Logs</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="sidebar-section-title">Operations</div>
+      <ul class="nav-list">
+        <li class="nav-item"><a onclick="doSleep()"><i class="fa-solid fa-bed"></i> Trigger Sleep</a></li>
+        <li class="nav-item"><a onclick="doStart()"><i class="fa-solid fa-play"></i> Start Bot</a></li>
+        <li class="nav-item"><a onclick="doStop()"><i class="fa-solid fa-power-off"></i> Disconnect</a></li>
+      </ul>
+    </div>
+
+    <div class="sidebar-foot">
+      <div class="server-label-row">
+        <span>Target Server</span>
+        <i class="fa-solid fa-signal" style="color: var(--emerald);"></i>
+      </div>
+      <div class="server-ip-val">
+        <i class="fa-solid fa-server" style="color: var(--primary-light);"></i>
+        <span>\${config.server.ip}:\${config.server.port}</span>
+      </div>
+      <div class="server-label-row" style="margin-top: 4px;">
+        <span>Bot Identity</span>
+        <span style="color: var(--text-muted);">\${config["bot-account"].username}</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <main class="app-main">
+    
+    <!-- Top Enterprise Header -->
+    <header class="top-header">
+      <div class="breadcrumb-trail">
+        <span><i class="fa-solid fa-network-wired"></i> Infrastructure</span>
+        <span>/</span>
+        <span class="crumb-active">\${config["bot-account"].username}</span>
+        <span class="status-pill online" id="top-pill"><span class="pulse-dot"></span> LIVE</span>
+      </div>
+
+      <div class="top-actions">
+        <div class="clock-badge">
+          <i class="fa-regular fa-clock"></i>
+          <span id="sys-clock">--:--:-- UTC</span>
         </div>
-        <div class="time-labels">
-          <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span>
-        </div>
+        <button class="header-btn" onclick="refresh()" title="Manual Refresh">
+          <i class="fa-solid fa-arrows-rotate"></i> Sync
+        </button>
+        <button class="header-btn btn-primary" onclick="doSleep()">
+          <i class="fa-solid fa-bed"></i> Force Sleep
+        </button>
+        <button class="header-btn btn-danger" onclick="doStop()">
+          <i class="fa-solid fa-power-off"></i> Stop
+        </button>
       </div>
+    </header>
+
+    <!-- Dashboard Body -->
+    <div class="dashboard-content">
+
+      <!-- Enterprise Hero Status Banner -->
+      <section class="hero-banner is-online" id="hero-banner">
+        <div class="hero-left">
+          <div class="hero-radar-badge" id="hero-radar-badge">
+            <i class="fa-solid fa-shield-halved" id="hero-status-icon"></i>
+          </div>
+          <div>
+            <div class="hero-meta-title-row">
+              <h1 class="hero-title" id="hero-title">Bot Operational</h1>
+              <span class="status-pill online" id="hero-badge"><span class="pulse-dot"></span> CONNECTED</span>
+            </div>
+            <div class="hero-subtext">
+              <span id="hero-subtitle">Connected to \${config.server.ip}:\${config.server.port}</span>
+            </div>
+            <div class="hero-tags" id="hero-tags" style="margin-top: 10px;">
+              <span class="chip-tag ghost"><i class="fa-solid fa-ghost"></i> Ghost Mode Active</span>
+              <span class="chip-tag bed"><i class="fa-solid fa-bed"></i> Sleep Sentinel Armed</span>
+              <span class="chip-tag world"><i class="fa-solid fa-globe"></i> Overworld</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="server-target-pill" onclick="copyIp()" title="Click to copy IP">
+            <i class="fa-solid fa-terminal"></i>
+            <span id="server-address-display">\${config.server.ip}:\${config.server.port}</span>
+            <i class="fa-regular fa-copy" id="copy-icon"></i>
+          </div>
+          <div class="hero-synced">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 10px; color: var(--primary);"></i>
+            <span id="last-sync-time">Polling every 3 seconds</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 KPI Metrics Cards -->
+      <section class="kpi-grid">
+        
+        <!-- Card 1: Vital Signs (Health & Food) -->
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><i class="fa-solid fa-heart-pulse"></i> Vital Signs</span>
+            <div class="kpi-icon-bubble emerald">
+              <i class="fa-solid fa-heart"></i>
+            </div>
+          </div>
+          <div class="kpi-main-val">
+            <span class="kpi-big-num" id="val-health">20</span>
+            <span class="kpi-denom">/ 20 HP</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill fill-emerald" id="meter-health" style="width: 100%;"></div>
+          </div>
+          <div class="kpi-sub-meta">
+            <span id="status-health">Condition: Prime</span>
+            <span id="val-food-sub"><i class="fa-solid fa-utensils"></i> 20 Food</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Spatial Telemetry / GPS -->
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><i class="fa-solid fa-compass"></i> Spatial GPS</span>
+            <div class="kpi-icon-bubble cyan">
+              <i class="fa-solid fa-location-dot"></i>
+            </div>
+          </div>
+          <div class="coords-cluster">
+            <div class="coord-chip">
+              <span class="coord-axis x">X</span>
+              <span class="coord-val" id="val-x">--</span>
+            </div>
+            <div class="coord-chip">
+              <span class="coord-axis y">Y</span>
+              <span class="coord-val" id="val-y">--</span>
+            </div>
+            <div class="coord-chip">
+              <span class="coord-axis z">Z</span>
+              <span class="coord-val" id="val-z">--</span>
+            </div>
+          </div>
+          <div class="kpi-sub-meta">
+            <span id="val-dimension"><i class="fa-solid fa-earth-americas"></i> Overworld</span>
+            <span id="val-elevation"><i class="fa-solid fa-mountain"></i> Ground</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Celestial Chronometer -->
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><i class="fa-solid fa-sun"></i> Celestial Time</span>
+            <div class="kpi-icon-bubble amber">
+              <i class="fa-solid fa-clock"></i>
+            </div>
+          </div>
+          <div class="kpi-main-val">
+            <span class="kpi-big-num" id="val-game-time">12:00</span>
+            <span class="kpi-denom" id="val-celestial-phase">Noon</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill fill-amber" id="meter-time" style="width: 50%;"></div>
+          </div>
+          <div class="kpi-sub-meta">
+            <span id="val-ticks">Ticks: 6,000</span>
+            <span id="val-sleep-eligibility"><i class="fa-solid fa-bed"></i> Daytime</span>
+          </div>
+        </div>
+
+        <!-- Card 4: System Telemetry & Cluster Node -->
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><i class="fa-solid fa-microchip"></i> System Node</span>
+            <div class="kpi-icon-bubble primary">
+              <i class="fa-solid fa-server"></i>
+            </div>
+          </div>
+          <div class="kpi-main-val">
+            <span class="kpi-big-num" id="val-memory">--</span>
+            <span class="kpi-denom">MB RAM</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill fill-primary" id="meter-memory" style="width: 20%;"></div>
+          </div>
+          <div class="kpi-sub-meta">
+            <span id="val-uptime"><i class="fa-solid fa-stopwatch"></i> Uptime: --</span>
+            <span id="val-reconnects"><i class="fa-solid fa-rotate"></i> 0 Drops</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Core Operations & Intelligence Grid -->
+      <section class="core-grid">
+
+        <!-- Left Column: Command Center & Subsystems -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+
+          <!-- Panel: Interactive Command Console -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <i class="fa-solid fa-terminal panel-title-icon"></i>
+                <h2 class="panel-title">Operator Command Terminal</h2>
+              </div>
+              <span class="panel-badge"><i class="fa-solid fa-shield"></i> Authorized</span>
+            </div>
+
+            <div class="terminal-container">
+              <div class="terminal-screen" id="term-screen">
+                <div class="term-line">
+                  <span class="term-prompt">sentinel@system:~$</span>
+                  <span class="term-resp">Sentinel Bot Command Interface online. Ready for in-game execution.</span>
+                </div>
+              </div>
+              <form class="terminal-input-bar" id="term-form" onsubmit="handleCommandSubmit(event)">
+                <span class="term-input-prompt">&gt;</span>
+                <input type="text" class="term-input-field" id="cmd-input" placeholder="Type Minecraft command (e.g. /sleep, /time query daytime, /list)..." autocomplete="off" />
+                <button type="submit" class="term-send-btn">
+                  <i class="fa-solid fa-paper-plane"></i> Execute
+                </button>
+              </form>
+            </div>
+
+            <div class="quick-chips-row">
+              <span style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; font-weight: 700;">Fast Presets:</span>
+              <button class="chip-btn" onclick="sendQuickCommand('/sleep')"><i class="fa-solid fa-bed"></i> /sleep</button>
+              <button class="chip-btn" onclick="sendQuickCommand('/time query daytime')"><i class="fa-solid fa-clock"></i> Query Time</button>
+              <button class="chip-btn" onclick="sendQuickCommand('/list')"><i class="fa-solid fa-users"></i> /list</button>
+              <button class="chip-btn" onclick="sendQuickCommand('/help')"><i class="fa-solid fa-circle-question"></i> /help</button>
+            </div>
+          </div>
+
+          <!-- Panel: In-Game Day/Night Matrix -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <i class="fa-solid fa-cloud-sun panel-title-icon"></i>
+                <h2 class="panel-title">Celestial World Timeline</h2>
+              </div>
+              <span class="panel-badge" id="timeline-phase-badge">Phase: Daytime</span>
+            </div>
+
+            <div class="timeline-wrap">
+              <div class="timeline-labels">
+                <span><i class="fa-solid fa-sun" style="color: #f59e0b;"></i> Sunrise</span>
+                <span><i class="fa-solid fa-sun" style="color: #38bdf8;"></i> Noon</span>
+                <span><i class="fa-solid fa-cloud-sun" style="color: #ea580c;"></i> Sunset</span>
+                <span><i class="fa-solid fa-moon" style="color: #818cf8;"></i> Midnight</span>
+              </div>
+              <div class="timeline-track">
+                <div class="timeline-cursor" id="timeline-cursor" style="left: 25%;">
+                  <i class="fa-solid fa-location-pin" style="font-size: 9px; color: var(--primary);"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Subsystem grid -->
+            <div class="subsystem-grid">
+              <div class="subsystem-card">
+                <div class="subsystem-icon">
+                  <i class="fa-solid fa-user-secret"></i>
+                </div>
+                <div class="subsystem-info">
+                  <span class="subsystem-name">Ghost Cloak Protocol</span>
+                  <span class="subsystem-state" id="subsys-ghost"><i class="fa-solid fa-circle-check"></i> Armed & Active</span>
+                </div>
+              </div>
+
+              <div class="subsystem-card">
+                <div class="subsystem-icon">
+                  <i class="fa-solid fa-bed"></i>
+                </div>
+                <div class="subsystem-info">
+                  <span class="subsystem-name">Smart Bed Navigator</span>
+                  <span class="subsystem-state" id="subsys-bed"><i class="fa-solid fa-circle-check"></i> Ready</span>
+                </div>
+              </div>
+
+              <div class="subsystem-card">
+                <div class="subsystem-icon">
+                  <i class="fa-solid fa-person-running"></i>
+                </div>
+                <div class="subsystem-info">
+                  <span class="subsystem-name">Anti-Mob Pathfinder</span>
+                  <span class="subsystem-state"><i class="fa-solid fa-circle-check"></i> Vigilant</span>
+                </div>
+              </div>
+
+              <div class="subsystem-card">
+                <div class="subsystem-icon">
+                  <i class="fa-solid fa-utensils"></i>
+                </div>
+                <div class="subsystem-info">
+                  <span class="subsystem-name">Silent Auto-Satiate</span>
+                  <span class="subsystem-state" id="subsys-food"><i class="fa-solid fa-circle-check"></i> Monitored</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Right Column: Player Surveillance & Live Telemetry Stream -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+
+          <!-- Panel: Player Radar -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <i class="fa-solid fa-users-viewfinder panel-title-icon"></i>
+                <h2 class="panel-title">Active Server Players</h2>
+              </div>
+              <span class="panel-badge" id="player-count-badge">0 Online</span>
+            </div>
+
+            <div class="player-roster" id="player-roster">
+              <div class="empty-state">
+                <i class="fa-solid fa-user-astronaut"></i>
+                <span>No other players currently detected in realm</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Live Telemetry Event Stream -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <i class="fa-solid fa-wave-square panel-title-icon"></i>
+                <h2 class="panel-title">Live Telemetry Audit Stream</h2>
+              </div>
+              <span class="panel-badge"><i class="fa-solid fa-satellite-dish"></i> Real-time</span>
+            </div>
+
+            <div class="stream-feed" id="stream-feed">
+              <div class="stream-item sys">
+                <span class="stream-time">INIT</span>
+                <span class="stream-msg">Sentinel Telemetry Engine initialized. Stream synchronized.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel: Node Runtime Specifications -->
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title-wrap">
+                <i class="fa-solid fa-sliders panel-title-icon"></i>
+                <h2 class="panel-title">Cluster Parameters</h2>
+              </div>
+              <span class="panel-badge">Config v3.0</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);"><i class="fa-solid fa-gamepad"></i> MC Protocol Version</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;" id="cfg-version">Auto-detect</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);"><i class="fa-solid fa-circle-nodes"></i> Max Reconnect Timeout</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">120s</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                <span style="color: var(--text-muted);"><i class="fa-solid fa-shield"></i> Stealth Reapplication</span>
+                <span style="color: var(--emerald); font-weight: 600;">Every 60s</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);"><i class="fa-solid fa-user-lock"></i> Auto-Auth Mode</span>
+                <span style="color: var(--emerald); font-weight: 600;">Enabled (Encrypted)</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
     </div>
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">👥</span>Players Online</div>
-      <div class="card-value" id="c-players">—</div>
-      <div class="player-list" id="player-list"></div>
-    </div>
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">💾</span>Memory Usage</div>
-      <div class="card-value" id="c-mem">— <span style="font-size:14px;color:var(--muted)">MB</span></div>
-      <div class="gauge-bar"><div class="gauge-fill memory" id="bar-mem" style="width:0%"></div></div>
-      <div class="card-sub">Server: ${config.server.ip}</div>
-    </div>
-  </div>
+  </main>
 
-  <!-- ROW 4: Bot info cards -->
-  <div class="grid grid-4">
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">🎮</span>Version</div>
-      <div class="card-value" style="font-size:16px;" id="c-ver">—</div>
-    </div>
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">👤</span>Username</div>
-      <div class="card-value" style="font-size:16px;">${config["bot-account"].username}</div>
-    </div>
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">🕵️</span>Stealth</div>
-      <div class="card-value" style="font-size:16px;" id="c-stealth">—</div>
-    </div>
-    <div class="card">
-      <div class="card-label"><span class="card-label-icon">🛏</span>Bed State</div>
-      <div class="card-value" style="font-size:16px;" id="c-bed">Awake</div>
-    </div>
-  </div>
+  <!-- Interactive JavaScript Engine -->
+  <script>
+    let lastState = null;
+    let eventLog = [];
 
-  <div class="page-footer">
-    Bot Tracker v3.0 &nbsp;·&nbsp; ${config.name} &nbsp;·&nbsp; Updates every 3 seconds
-  </div>
-</div>
-
-<script>
-  function fmtUptime(s) {
-    const d = Math.floor(s / 86400);
-    const h = Math.floor((s % 86400) / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
-    if (h > 0) return h + 'h ' + m + 'm ' + sec + 's';
-    if (m > 0) return m + 'm ' + sec + 's';
-    return sec + 's';
-  }
-
-  function fmtTime(ticks) {
-    // MC day starts at 6000 ticks = 6:00 AM
-    if (ticks === null || ticks === undefined) return '—';
-    const real = ((ticks + 6000) % 24000);
-    const h = Math.floor(real / 1000);
-    const m = Math.floor((real % 1000) / 1000 * 60);
-    const hh = String(h).padStart(2,'0');
-    const mm = String(m).padStart(2,'0');
-    return hh + ':' + mm;
-  }
-
-  function timeLabel(ticks) {
-    if (ticks === null || ticks === undefined) return '';
-    const t = (ticks + 6000) % 24000;
-    if (t < 1000) return '🌅 Dawn';
-    if (t < 6000) return '☀️ Morning';
-    if (t < 12000) return '🌞 Noon';
-    if (t < 14000) return '🌆 Afternoon';
-    if (t < 15500) return '🌇 Sunset';
-    if (t < 17000) return '🌆 Dusk';
-    return '🌙 Night';
-  }
-
-  function timePct(ticks) {
-    if (ticks === null || ticks === undefined) return 0;
-    return ((ticks % 24000) / 24000) * 100;
-  }
-
-  function setText(id, val) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-  }
-
-  async function refresh() {
-    try {
-      const r = await fetch('/health');
-      const d = await r.json();
-      const online = d.status === 'connected';
-      const sleeping = d.isSleeping;
-      const going = d.isGoingToBed;
-
-      // Hero
-      const hero  = document.getElementById('hero');
-      const hIcon = document.getElementById('hero-icon');
-      const hTitle = document.getElementById('hero-title');
-      const hSub  = document.getElementById('hero-sub');
-      const hTags = document.getElementById('hero-tags');
-
-      let heroClass = online ? (sleeping ? 'sleeping' : 'online') : 'offline';
-      hero.className  = 'status-hero ' + heroClass;
-      hIcon.className = 'status-avatar ' + heroClass;
-      hIcon.textContent = sleeping ? '🛌' : (going ? '🚶' : (online ? '✅' : '⚫'));
-      hTitle.className = 'status-title ' + heroClass;
-      hTitle.textContent = sleeping ? 'Sleeping in Bed' : (going ? 'Walking to Bed…' : (online ? 'Online' : 'Offline'));
-      hSub.textContent = online
-        ? 'Connected to ' + d.serverIp + (d.version ? ' (' + d.version + ')' : '')
-        : 'Reconnecting… (attempt #' + d.reconnectAttempts + ')';
-
-      // Tags
-      const tags = [];
-      if (online && d.stealth) tags.push('<span class="tag tag-purple">👻 Ghost Mode</span>');
-      if (sleeping) tags.push('<span class="tag tag-blue">🛌 Sleeping</span>');
-      if (online && !sleeping) tags.push('<span class="tag tag-green">✅ Active</span>');
-      if (!online) tags.push('<span class="tag tag-red">⚡ Reconnecting</span>');
-      if (d.reconnectAttempts > 0) tags.push('<span class="tag tag-orange">🔄 ' + d.reconnectAttempts + ' reconnects</span>');
-      hTags.innerHTML = tags.join('');
-
-      // Uptime
-      setText('c-uptime', fmtUptime(d.uptime));
-      setText('c-reconnects', 'Reconnects: ' + d.reconnectAttempts);
-
-      // Health
-      const hp = Math.round(d.health);
-      setText('c-health', hp);
-      const hpPct = Math.max(0, Math.min(100, (d.health / 20) * 100));
-      document.getElementById('bar-health').style.width = hpPct + '%';
-      setText('c-health-sub', hp <= 4 ? '⚠️ Critical HP!' : hp <= 10 ? '💛 Low HP' : '💚 Healthy');
-
-      // Food
-      const food = Math.round(d.food);
-      setText('c-food', food);
-      const foodPct = Math.max(0, Math.min(100, (d.food / 20) * 100));
-      document.getElementById('bar-food').style.width = foodPct + '%';
-      setText('c-food-sub', food <= 6 ? '⚠️ Very hungry!' : food <= 12 ? '🍗 A bit hungry' : '✅ Well fed');
-
-      // Coords
-      if (d.coords) {
-        setText('c-x', Math.floor(d.coords.x));
-        setText('c-y', Math.floor(d.coords.y));
-        setText('c-z', Math.floor(d.coords.z));
-      } else {
-        ['c-x','c-y','c-z'].forEach(id => setText(id, '—'));
-      }
-      setText('c-dim', 'Dimension: ' + (d.dimension || '—'));
-
-      // Time
-      setText('c-time', fmtTime(d.gameTime) + '  ' + timeLabel(d.gameTime));
-      const pct = timePct(d.gameTime);
-      document.getElementById('time-cursor').style.left = pct + '%';
-
-      // Players
-      setText('c-players', d.playersOnline + ' player' + (d.playersOnline !== 1 ? 's' : ''));
-      const pList = document.getElementById('player-list');
-      if (d.players && d.players.length > 0) {
-        pList.innerHTML = d.players.map(p =>
-          '<div class="player-item"><div class="player-dot"></div>' + p + '</div>'
-        ).join('');
-      } else {
-        pList.innerHTML = '<div class="player-empty">No other players online</div>';
-      }
-
-      // Memory
-      setText('c-mem', d.memoryUsage);
-      const memPct = Math.min(100, (d.memoryUsage / 256) * 100);
-      document.getElementById('bar-mem').style.width = memPct + '%';
-
-      // Info cards
-      setText('c-ver', d.version || '—');
-      setText('c-stealth', d.stealth ? '👻 Active' : '⚪ Off');
-      setText('c-bed', d.isSleeping ? '😴 Sleeping' : (d.isGoingToBed ? '🚶 Walking…' : '☀️ Awake'));
-
-      // Last update
-      setText('last-update', 'Updated ' + new Date().toLocaleTimeString());
-    } catch(e) {
-      document.getElementById('hero-title').textContent = 'Unreachable';
+    function updateClock() {
+      const d = new Date();
+      const el = document.getElementById('sys-clock');
+      if (el) el.textContent = d.toTimeString().split(' ')[0] + ' Local';
     }
-  }
+    setInterval(updateClock, 1000);
+    updateClock();
 
-  async function doStart() {
-    const r = await fetch('/start', { method: 'POST' });
-    const d = await r.json();
-    if (!d.success) alert(d.msg);
-    refresh();
-  }
-  async function doStop() {
-    if (!confirm('Stop the bot?')) return;
-    const r = await fetch('/stop', { method: 'POST' });
-    const d = await r.json();
-    if (!d.success) alert(d.msg);
-    refresh();
-  }
-  async function doSleep() {
-    const r = await fetch('/command', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({command: '/sleep'})
-    });
-    const d = await r.json();
-    alert(d.msg || 'Sleep triggered');
-    refresh();
-  }
+    function fmtUptime(sec) {
+      if (!sec || sec < 0) return '0s';
+      const d = Math.floor(sec / 86400);
+      const h = Math.floor((sec % 86400) / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = Math.floor(sec % 60);
+      if (d > 0) return d + 'd ' + h + 'h';
+      if (h > 0) return h + 'h ' + m + 'm';
+      if (m > 0) return m + 'm ' + s + 's';
+      return s + 's';
+    }
 
-  refresh();
-  setInterval(refresh, 3000);
-</script>
+    function fmtGameTime(ticks) {
+      if (ticks === null || ticks === undefined) return '--:--';
+      const norm = ((ticks % 24000) + 24000) % 24000;
+      const totalHours = (norm / 1000 + 6) % 24;
+      const hours = Math.floor(totalHours);
+      const minutes = Math.floor((totalHours - hours) * 60);
+      return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0');
+    }
+
+    function getCelestialPhase(ticks) {
+      if (ticks === null || ticks === undefined) return 'Unknown';
+      const t = ((ticks % 24000) + 24000) % 24000;
+      if (t < 1000)  return 'Dawn';
+      if (t < 6000)  return 'Morning';
+      if (t < 11500) return 'Noon';
+      if (t < 13000) return 'Sunset';
+      if (t < 18000) return 'Dusk / Night';
+      if (t < 23000) return 'Midnight';
+      return 'Pre-Dawn';
+    }
+
+    function addAuditLog(category, msg) {
+      const timeStr = new Date().toTimeString().split(' ')[0];
+      const feed = document.getElementById('stream-feed');
+      if (!feed) return;
+      const item = document.createElement('div');
+      item.className = 'stream-item ' + category;
+      item.innerHTML = '<span class="stream-time">' + timeStr + '</span><span class="stream-msg">' + msg + '</span>';
+      feed.insertBefore(item, feed.firstChild);
+      while (feed.children.length > 25) {
+        feed.removeChild(feed.lastChild);
+      }
+    }
+
+    function addTerminalLine(prompt, resp, isErr) {
+      const screen = document.getElementById('term-screen');
+      if (!screen) return;
+      const row = document.createElement('div');
+      row.className = 'term-line';
+      row.innerHTML = '<span class="term-prompt">' + prompt + '</span><span class="term-resp" style="' + (isErr ? 'color: var(--rose);' : '') + '">' + resp + '</span>';
+      screen.appendChild(row);
+      screen.scrollTop = screen.scrollHeight;
+    }
+
+    async function sendQuickCommand(cmd) {
+      const input = document.getElementById('cmd-input');
+      if (input) input.value = cmd;
+      await executeCommand(cmd);
+    }
+
+    async function handleCommandSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('cmd-input');
+      if (!input || !input.value.trim()) return;
+      const cmd = input.value.trim();
+      input.value = '';
+      await executeCommand(cmd);
+    }
+
+    async function executeCommand(cmd) {
+      addTerminalLine('sentinel@cmd:~$ ' + cmd, 'Executing in-game...');
+      try {
+        const r = await fetch('/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command: cmd })
+        });
+        const d = await r.json();
+        addTerminalLine('&lt;bot&gt;', d.msg || 'Command dispatched successfully', !d.success);
+        addAuditLog('sys', 'Command executed: ' + cmd);
+        refresh();
+      } catch (err) {
+        addTerminalLine('&lt;error&gt;', 'Network communication failed', true);
+      }
+    }
+
+    function copyIp() {
+      const text = document.getElementById('server-address-display').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const icon = document.getElementById('copy-icon');
+        if (icon) {
+          icon.className = 'fa-solid fa-check';
+          setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
+        }
+      });
+    }
+
+    async function refresh() {
+      try {
+        const r = await fetch('/health');
+        const d = await r.json();
+        const online = d.status === 'connected';
+        const sleeping = Boolean(d.isSleeping);
+        const goingToBed = Boolean(d.isGoingToBed);
+
+        // Track changes for audit stream
+        if (lastState && lastState.online !== online) {
+          addAuditLog(online ? 'sys' : 'warn', online ? 'Connection established with server realm.' : 'Connection severed. Reconnection algorithm activated.');
+        }
+        if (lastState && lastState.sleeping !== sleeping) {
+          addAuditLog('bed', sleeping ? 'Bot entered sanctuary bed. Resting peacefully.' : 'Bot awakened from bed.');
+        }
+        if (lastState && lastState.playersOnline !== d.playersOnline) {
+          addAuditLog('ghost', 'Player count updated: ' + d.playersOnline + ' present.');
+        }
+        lastState = { online: online, sleeping: sleeping, playersOnline: d.playersOnline };
+
+        // Hero Banner Styling
+        const heroBanner = document.getElementById('hero-banner');
+        const heroBadge  = document.getElementById('hero-badge');
+        const heroTitle  = document.getElementById('hero-title');
+        const heroSub    = document.getElementById('hero-subtitle');
+        const heroRadar  = document.getElementById('hero-radar-badge');
+        const heroIcon   = document.getElementById('hero-status-icon');
+        const topPill    = document.getElementById('top-pill');
+
+        if (sleeping) {
+          heroBanner.className = 'hero-banner is-sleeping';
+          heroRadar.className = 'hero-radar-badge sleeping';
+          heroIcon.className = 'fa-solid fa-bed';
+          heroBadge.className = 'status-pill sleeping';
+          heroBadge.innerHTML = '<span class="pulse-dot"></span> SLEEPING';
+          heroTitle.textContent = 'Resting in Bed';
+          heroSub.textContent = 'Skip-night sentinel protocol active in sanctuary';
+          topPill.className = 'status-pill sleeping';
+          topPill.innerHTML = '<span class="pulse-dot"></span> SLEEP';
+        } else if (goingToBed) {
+          heroBanner.className = 'hero-banner is-sleeping';
+          heroRadar.className = 'hero-radar-badge sleeping';
+          heroIcon.className = 'fa-solid fa-person-walking-arrow-right';
+          heroBadge.className = 'status-pill sleeping';
+          heroBadge.innerHTML = '<span class="pulse-dot"></span> MOVING TO BED';
+          heroTitle.textContent = 'Navigating to Bed...';
+          heroSub.textContent = 'Night skip detected — seeking nearest registered mattress';
+          topPill.className = 'status-pill sleeping';
+          topPill.innerHTML = '<span class="pulse-dot"></span> NAVIGATING';
+        } else if (online) {
+          heroBanner.className = 'hero-banner is-online';
+          heroRadar.className = 'hero-radar-badge';
+          heroIcon.className = 'fa-solid fa-shield-halved';
+          heroBadge.className = 'status-pill online';
+          heroBadge.innerHTML = '<span class="pulse-dot"></span> OPERATIONAL';
+          heroTitle.textContent = 'Sentinel Bot Active';
+          heroSub.textContent = 'Connected to ' + d.serverIp + (d.version ? ' (' + d.version + ')' : '');
+          topPill.className = 'status-pill online';
+          topPill.innerHTML = '<span class="pulse-dot"></span> ONLINE';
+        } else {
+          heroBanner.className = 'hero-banner is-offline';
+          heroRadar.className = 'hero-radar-badge offline';
+          heroIcon.className = 'fa-solid fa-triangle-exclamation';
+          heroBadge.className = 'status-pill offline';
+          heroBadge.innerHTML = '<span class="pulse-dot"></span> DISCONNECTED';
+          heroTitle.textContent = 'Standby / Reconnecting';
+          heroSub.textContent = 'Attempt #' + (d.reconnectAttempts || 0) + ' — Awaiting server availability';
+          topPill.className = 'status-pill offline';
+          topPill.innerHTML = '<span class="pulse-dot"></span> OFFLINE';
+        }
+
+        // Tags
+        const tagsWrap = document.getElementById('hero-tags');
+        if (tagsWrap) {
+          const tags = [];
+          if (online && d.stealth) tags.push('<span class="chip-tag ghost"><i class="fa-solid fa-ghost"></i> Ghost Cloak Active</span>');
+          if (sleeping) tags.push('<span class="chip-tag bed"><i class="fa-solid fa-bed"></i> Resting in Bed</span>');
+          if (online && !sleeping) tags.push('<span class="chip-tag" style="color: var(--emerald); border-color: rgba(16,185,129,0.3);"><i class="fa-solid fa-circle-check"></i> AFK Loop Healthy</span>');
+          if (!online) tags.push('<span class="chip-tag" style="color: var(--rose); border-color: rgba(244,63,94,0.3);"><i class="fa-solid fa-rotate"></i> Auto-Reconnect Armed</span>');
+          if (d.dimension) tags.push('<span class="chip-tag world"><i class="fa-solid fa-earth-americas"></i> ' + d.dimension + '</span>');
+          tagsWrap.innerHTML = tags.join('');
+        }
+
+        // Vitals
+        const hp = Math.round(d.health || 0);
+        document.getElementById('val-health').textContent = hp;
+        const hpPct = Math.max(0, Math.min(100, (hp / 20) * 100));
+        document.getElementById('meter-health').style.width = hpPct + '%';
+        const hpLabel = document.getElementById('status-health');
+        if (hp <= 6) {
+          hpLabel.textContent = 'Critical Status';
+          hpLabel.style.color = 'var(--rose)';
+        } else if (hp <= 12) {
+          hpLabel.textContent = 'Degraded Condition';
+          hpLabel.style.color = 'var(--amber)';
+        } else {
+          hpLabel.textContent = 'Condition: Prime';
+          hpLabel.style.color = 'var(--emerald)';
+        }
+
+        const food = Math.round(d.food || 0);
+        document.getElementById('val-food-sub').innerHTML = '<i class="fa-solid fa-utensils"></i> ' + food + ' Food';
+
+        // Coordinates
+        if (d.coords) {
+          document.getElementById('val-x').textContent = Math.floor(d.coords.x);
+          document.getElementById('val-y').textContent = Math.floor(d.coords.y);
+          document.getElementById('val-z').textContent = Math.floor(d.coords.z);
+        } else {
+          document.getElementById('val-x').textContent = '--';
+          document.getElementById('val-y').textContent = '--';
+          document.getElementById('val-z').textContent = '--';
+        }
+        document.getElementById('val-dimension').innerHTML = '<i class="fa-solid fa-earth-americas"></i> ' + (d.dimension || 'Overworld');
+        if (d.coords && d.coords.y !== undefined) {
+          document.getElementById('val-elevation').innerHTML = '<i class="fa-solid fa-mountain"></i> Y=' + Math.floor(d.coords.y);
+        }
+
+        // Celestial Time
+        const gt = d.gameTime !== undefined && d.gameTime !== null ? d.gameTime : 6000;
+        document.getElementById('val-game-time').textContent = fmtGameTime(gt);
+        const phase = getCelestialPhase(gt);
+        document.getElementById('val-celestial-phase').textContent = phase;
+        document.getElementById('timeline-phase-badge').textContent = 'Phase: ' + phase;
+
+        const timeProgress = ((gt % 24000) / 24000) * 100;
+        document.getElementById('meter-time').style.width = timeProgress + '%';
+        document.getElementById('timeline-cursor').style.left = Math.min(98, Math.max(2, timeProgress)) + '%';
+        document.getElementById('val-ticks').textContent = 'Ticks: ' + (gt % 24000).toLocaleString();
+
+        const canSleep = (gt % 24000) >= 12541 && (gt % 24000) <= 23458;
+        const sleepBadge = document.getElementById('val-sleep-eligibility');
+        if (sleepBadge) {
+          sleepBadge.innerHTML = canSleep 
+            ? '<i class="fa-solid fa-bed" style="color: var(--primary-light);"></i> Sleep Window Open'
+            : '<i class="fa-solid fa-sun" style="color: var(--amber);"></i> Daytime';
+        }
+
+        // Memory & Uptime
+        document.getElementById('val-memory').textContent = d.memoryUsage || '--';
+        const memPct = Math.min(100, ((d.memoryUsage || 0) / 256) * 100);
+        document.getElementById('meter-memory').style.width = memPct + '%';
+        document.getElementById('val-uptime').innerHTML = '<i class="fa-solid fa-stopwatch"></i> Uptime: ' + fmtUptime(d.uptime);
+        document.getElementById('val-reconnects').innerHTML = '<i class="fa-solid fa-rotate"></i> ' + (d.reconnectAttempts || 0) + ' Drops';
+
+        // Players roster
+        const pBadge = document.getElementById('player-count-badge');
+        pBadge.textContent = (d.playersOnline || 0) + ' Online';
+        const roster = document.getElementById('player-roster');
+        if (d.players && d.players.length > 0) {
+          roster.innerHTML = d.players.map(p => {
+            const initial = (p || '?')[0].toUpperCase();
+            return '<div class="player-row">' +
+              '<div class="player-meta">' +
+                '<div class="player-avatar">' + initial + '</div>' +
+                '<span class="player-name">' + p + '</span>' +
+              '</div>' +
+              '<span class="player-status-tag"><i class="fa-solid fa-circle-dot"></i> In Vicinity</span>' +
+            '</div>';
+          }).join('');
+        } else {
+          roster.innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-astronaut"></i><span>No other players currently detected in realm</span></div>';
+        }
+
+        // Subsystems
+        document.getElementById('subsys-ghost').innerHTML = d.stealth 
+          ? '<i class="fa-solid fa-circle-check"></i> Armed & Active' 
+          : '<i class="fa-solid fa-circle-pause" style="color: var(--amber);"></i> Standby';
+
+        document.getElementById('subsys-bed').innerHTML = sleeping 
+          ? '<i class="fa-solid fa-bed" style="color: var(--primary-light);"></i> Resting' 
+          : '<i class="fa-solid fa-circle-check"></i> Vigilant';
+
+        if (d.version) {
+          document.getElementById('cfg-version').textContent = d.version;
+        }
+
+        document.getElementById('last-sync-time').textContent = 'Synced: ' + new Date().toLocaleTimeString();
+
+      } catch (err) {
+        document.getElementById('hero-title').textContent = 'Dashboard Disconnected';
+      }
+    }
+
+    async function doStart() {
+      try {
+        const r = await fetch('/start', { method: 'POST' });
+        const d = await r.json();
+        addTerminalLine('&lt;system&gt;', d.msg || 'Start sequence invoked');
+        refresh();
+      } catch (e) {
+        alert('Failed to send start signal');
+      }
+    }
+
+    async function doStop() {
+      if (!confirm('Are you sure you want to stop/disconnect the AFK bot?')) return;
+      try {
+        const r = await fetch('/stop', { method: 'POST' });
+        const d = await r.json();
+        addTerminalLine('&lt;system&gt;', d.msg || 'Disconnection invoked');
+        refresh();
+      } catch (e) {
+        alert('Failed to send stop signal');
+      }
+    }
+
+    async function doSleep() {
+      await executeCommand('/sleep');
+    }
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
 </body>
 </html>`);
 });
